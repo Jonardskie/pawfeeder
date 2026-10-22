@@ -166,7 +166,7 @@
       s->set_wb_mode(s, 0);       // Auto WB mode
       s->set_exposure_ctrl(s, 1); // Auto exposure on
       s->set_aec2(s, 1);          // Enhanced DSP auto exposure
-      s->set_gain_ceiling(s, GAINCEILING_4X); // Cleaner low-light (removes heavy sensor noise)
+      s->set_gainceiling(s, GAINCEILING_4X); // Cleaner low-light (removes heavy sensor noise)
       s->set_bpc(s, 1);           // Bad pixel correction (eliminates noisy sensor dots)
       s->set_wpc(s, 1);           // White pixel correction
       s->set_raw_gma(s, 1);       // Gamma curve correction (better shadow/highlight balance)
