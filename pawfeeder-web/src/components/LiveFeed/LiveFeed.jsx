@@ -15,7 +15,8 @@ const CLOUD_LAMP_URL = 'https://pawfeeder-or3n.onrender.com/lamp'
 
 export default function LiveFeed() {
   const [status, setStatus] = useState(STATUS.STREAMING)
-  const [streamKey, setStreamKey] = useState(0)
+  const [streamKey, setStreamKey] = useState(() => Date.now())
+  const [isMountingStream, setIsMountingStream] = useState(true)
   const [streamMode, setStreamMode] = useState(() => {
     return localStorage.getItem('pawfeeder_cam_mode') || 'cloud'
   })
@@ -40,20 +41,42 @@ export default function LiveFeed() {
     return () => unsub()
   }, [])
 
-  // Calculate active stream URL based on mode
+  // Calculate active stream base URL based on selected mode
   const activeBaseUrl = streamMode === 'local' 
     ? `http://${localIp}/stream` 
     : CLOUD_STREAM_URL
 
-  const streamUrl = `${activeBaseUrl}${streamKey > 0 ? (activeBaseUrl.includes('?') ? `&r=${streamKey}` : `?r=${streamKey}`) : ''}`
+  const streamUrl = `${activeBaseUrl}?t=${streamKey}`
 
+  // Instant seamless mode change without requiring browser refresh
   const handleModeChange = (mode) => {
     if (mode === streamMode) return
+    
+    // 1. Unmount existing image to immediately terminate previous HTTP socket
+    setIsMountingStream(false)
+    setStatus(STATUS.LOADING)
     setStreamMode(mode)
     localStorage.setItem('pawfeeder_cam_mode', mode)
-    setStatus(STATUS.STREAMING)
-    setStreamKey(k => k + 1)
+    const newKey = Date.now()
+    setStreamKey(newKey)
+
+    // 2. Mount fresh image element with new target URL
+    setTimeout(() => {
+      setIsMountingStream(true)
+      setStatus(STATUS.STREAMING)
+    }, 50)
   }
+
+  const handleRetry = useCallback(() => {
+    setIsMountingStream(false)
+    setStatus(STATUS.LOADING)
+    const newKey = Date.now()
+    setStreamKey(newKey)
+    setTimeout(() => {
+      setIsMountingStream(true)
+      setStatus(STATUS.STREAMING)
+    }, 50)
+  }, [])
 
   const handleToggleNightLight = async () => {
     const nextState = !nightLight
@@ -84,11 +107,6 @@ export default function LiveFeed() {
 
   const handleStreamError = useCallback(() => {
     setStatus(STATUS.ERROR)
-  }, [])
-
-  const handleRetry = useCallback(() => {
-    setStatus(STATUS.STREAMING)
-    setStreamKey(k => k + 1)
   }, [])
 
   const handleFullscreen = useCallback(() => {
@@ -138,15 +156,18 @@ export default function LiveFeed() {
 
       {/* Viewport */}
       <div className="livefeed-viewport">
-        {/* MJPEG stream */}
-        <img
-          ref={imgRef}
-          key={`${streamMode}-${streamKey}`}
-          src={streamUrl}
-          alt="ESP32-CAM live stream"
-          className={`livefeed-img ${status === STATUS.STREAMING ? 'livefeed-img--visible' : ''}`}
-          onError={handleStreamError}
-        />
+        {/* MJPEG stream with clean unmount/remount */}
+        {isMountingStream && (
+          <img
+            ref={imgRef}
+            key={`${streamMode}-${streamKey}`}
+            src={streamUrl}
+            alt="ESP32-CAM live stream"
+            className={`livefeed-img ${status === STATUS.STREAMING ? 'livefeed-img--visible' : ''}`}
+            onLoad={() => setStatus(STATUS.STREAMING)}
+            onError={handleStreamError}
+          />
+        )}
 
         {/* Loading overlay */}
         {status === STATUS.LOADING && (
@@ -166,7 +187,7 @@ export default function LiveFeed() {
             </p>
             <p className="livefeed-overlay-sub">
               {streamMode === 'local'
-                ? `Make sure you are on home WiFi (Target: ${localIp})`
+                ? `Make sure your device is on the same WiFi (Target: ${localIp})`
                 : 'Target: pawfeeder-or3n.onrender.com'}
             </p>
             <div className="livefeed-error-actions">
