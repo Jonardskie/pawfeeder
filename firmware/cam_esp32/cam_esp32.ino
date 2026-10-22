@@ -283,6 +283,11 @@
       if (vPos >= 0) {
         activeViewers = resp.substring(vPos + 10).toInt();
       }
+      int lPos = resp.indexOf("\"lamp\":");
+      if (lPos >= 0) {
+        bool lampOn = resp.substring(lPos + 7).startsWith("true");
+        digitalWrite(FLASH_LED_PIN, lampOn ? HIGH : LOW);
+      }
     } else {
       // Reconnect on network drop or timeout
       httpRelay.end();
@@ -309,7 +314,16 @@
 
       Serial.printf("Local Request: %s\n", request.substring(0, request.indexOf('\n')).c_str());
 
-      if (request.indexOf("GET /stream") >= 0) {
+      if (request.indexOf("GET /lamp") >= 0) {
+        bool turnOn = (request.indexOf("state=1") >= 0 || request.indexOf("state=true") >= 0);
+        digitalWrite(FLASH_LED_PIN, turnOn ? HIGH : LOW);
+        client.println("HTTP/1.1 200 OK");
+        client.println("Content-Type: application/json");
+        client.println("Access-Control-Allow-Origin: *");
+        client.println("Connection: close");
+        client.println();
+        client.printf("{\"ok\":true,\"state\":%s}\r\n", turnOn ? "true" : "false");
+      } else if (request.indexOf("GET /stream") >= 0) {
         handleStream(client);
       } else if (request.indexOf("GET /snapshot") >= 0) {
         handleSnapshot(client);

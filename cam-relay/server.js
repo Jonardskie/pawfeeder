@@ -17,6 +17,8 @@ let latestFrame = null;
 let lastFrameTimestamp = 0;
 const mjpegClients = new Set();
 
+let nightLightState = false;
+
 // ── 1. ESP32-CAM pushes frames here ─────────────────────────
 app.post('/upload', (req, res) => {
   if (!req.body || req.body.length === 0) {
@@ -39,14 +41,33 @@ app.post('/upload', (req, res) => {
     }
   }
 
-  // Tell ESP32 how many active viewers there are
-  // (If viewers == 0, ESP32 can slow down to save bandwidth)
+  // Tell ESP32 how many active viewers there are and night light lamp state
   res.set('Connection', 'keep-alive');
   res.json({
     ok: true,
     viewers: mjpegClients.size,
+    lamp: nightLightState,
     bytes: req.body.length
   });
+});
+
+// ── Night Light / Lamp Endpoint ─────────────────────────────
+app.post('/lamp', express.json(), (req, res) => {
+  if (req.body && typeof req.body.state === 'boolean') {
+    nightLightState = req.body.state;
+  } else {
+    nightLightState = !nightLightState;
+  }
+  console.log(`[Lamp] State set to: ${nightLightState}`);
+  res.json({ ok: true, state: nightLightState });
+});
+
+app.get('/lamp', (req, res) => {
+  if (req.query.state !== undefined) {
+    nightLightState = (req.query.state === '1' || req.query.state === 'true');
+    console.log(`[Lamp] State set to: ${nightLightState} via GET`);
+  }
+  res.json({ ok: true, state: nightLightState });
 });
 
 // ── 2. Web App connects here to watch live video ─────────────

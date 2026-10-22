@@ -9,23 +9,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .livefeed-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.livefeed-cam-label {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
 }
 
 /* LIVE badge pulse dot */
@@ -39,6 +30,59 @@
   background: var(--red);
   display: inline-block;
   animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+/* Dual Mode Switcher (Local Fast ⚡ vs Cloud Remote 🌐) */
+.livefeed-mode-switcher {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  padding: 3px;
+  border-radius: 8px;
+  gap: 3px;
+}
+
+.livefeed-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.livefeed-mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.livefeed-mode-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(var(--accent-rgb, 99, 102, 241), 0.35);
+}
+
+.mode-icon-zap {
+  color: #f59e0b;
+}
+
+.livefeed-mode-btn.active .mode-icon-zap {
+  color: #fef08a;
+}
+
+.mode-icon-globe {
+  color: #38bdf8;
+}
+
+.livefeed-mode-btn.active .mode-icon-globe {
+  color: #e0f2fe;
 }
 
 /* Viewport */
@@ -79,6 +123,8 @@
   gap: 10px;
   background: #000C;
   animation: fade-in 0.3s ease;
+  padding: 16px;
+  text-align: center;
 }
 
 .livefeed-overlay-text {
@@ -91,6 +137,10 @@
   font-size: 0.72rem;
   color: var(--text-muted);
   font-family: monospace;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Loading spinner */
@@ -102,24 +152,54 @@
   animation: spin 0.8s linear infinite;
 }
 
-/* Retry button */
+/* Error action buttons */
+.livefeed-error-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
 .livefeed-retry-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
-  padding: 8px 18px;
+  padding: 7px 16px;
   background: var(--accent-subtle);
   color: var(--accent-hover);
   border: 1px solid var(--border-accent);
   border-radius: var(--radius);
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  cursor: pointer;
   transition: background 0.15s, transform 0.1s;
 }
 
 .livefeed-retry-btn:hover {
   background: var(--accent);
+  color: #fff;
+  transform: scale(1.02);
+}
+
+.livefeed-switch-fallback-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.livefeed-switch-fallback-btn:hover {
+  background: rgba(56, 189, 248, 0.3);
   color: #fff;
   transform: scale(1.02);
 }
@@ -132,31 +212,75 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 70%, transparent 100%);
   animation: fade-in 0.5s ease;
 }
 
 .livefeed-bar-left {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 0.72rem;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255,255,255,0.75);
   font-weight: 500;
 }
 
-.livefeed-fullscreen-btn {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 6px;
-  padding: 5px;
-  color: rgba(255,255,255,0.8);
+.livefeed-bar-right {
   display: flex;
   align-items: center;
-  transition: background 0.15s;
+  gap: 8px;
 }
 
-.livefeed-fullscreen-btn:hover {
-  background: rgba(255,255,255,0.2);
+.livefeed-control-btn {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: rgba(255,255,255,0.85);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.livefeed-control-btn:hover {
+  background: rgba(255,255,255,0.25);
   color: #fff;
+}
+
+/* Night Light button styling */
+.livefeed-lamp-btn {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fde68a;
+}
+
+.livefeed-lamp-btn:hover {
+  background: rgba(245, 158, 11, 0.3);
+  color: #fff;
+}
+
+.livefeed-lamp-btn.lamp-on {
+  background: #f59e0b;
+  border-color: #fbbf24;
+  color: #000;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.75);
+  font-weight: 700;
+}
+
+.livefeed-lamp-btn.lamp-on:hover {
+  background: #fbbf24;
+  color: #000;
+}
+
+.lamp-glow-icon {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+.livefeed-fullscreen-btn {
+  padding: 5px;
 }
