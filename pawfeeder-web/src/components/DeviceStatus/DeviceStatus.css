@@ -1,0 +1,56 @@
+.devstatus { display: flex; flex-direction: column; gap: 14px; }
+
+.devstatus-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.devstatus-tile {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: border-color 0.15s;
+}
+
+.devstatus-tile:hover {
+  border-color: var(--border-accent);
+}
+
+.devstatus-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.devstatus-tile-icon {
+  color: var(--text-muted);
+}
+
+.devstatus-tile-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.devstatus-tile-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.devstatus-tile-value--warn {
+  color: var(--amber);
+}
+
+.devstatus-tile-sub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}

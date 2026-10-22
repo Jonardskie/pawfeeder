@@ -1,0 +1,55 @@
+/* ============================================================
+   PawFeeder — Keyframe Animations
+   ============================================================ */
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: 1; }
+  70%  { transform: scale(1.4);  opacity: 0; }
+  100% { transform: scale(1.4);  opacity: 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 12px var(--green-glow); }
+  50%       { box-shadow: 0 0 28px var(--green-glow), 0 0 48px var(--green-glow); }
+}
+
+/* ── Utility animation classes ──────────────────────────────── */
+.animate-fade-in      { animation: fade-in 0.4s ease both; }
+.animate-slide-left   { animation: slide-in-left 0.35s ease both; }
+.animate-spin         { animation: spin 1s linear infinite; }
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 0px,
+    var(--bg-card-hover) 200px,
+    var(--bg-card) 400px
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.6s infinite linear;
+  border-radius: var(--radius);
+}
