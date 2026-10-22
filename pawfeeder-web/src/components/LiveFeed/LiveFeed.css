@@ -59,6 +59,9 @@
   opacity: 0;
   transition: opacity 0.4s ease;
   display: block;
+  transform: translateZ(0);
+  will-change: contents;
+  image-rendering: auto;
 }
 
 .livefeed-img--visible {

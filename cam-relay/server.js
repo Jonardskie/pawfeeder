@@ -26,12 +26,14 @@ app.post('/upload', (req, res) => {
   latestFrame = req.body;
   lastFrameTimestamp = Date.now();
 
-  // Broadcast frame to all connected web viewers
+  // Broadcast frame to all connected web viewers in single atomic buffer to minimize TCP jitter
+  const header = Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${req.body.length}\r\n\r\n`);
+  const footer = Buffer.from('\r\n');
+  const packet = Buffer.concat([header, req.body, footer]);
+
   for (const client of mjpegClients) {
     try {
-      client.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${req.body.length}\r\n\r\n`);
-      client.write(req.body);
-      client.write('\r\n');
+      client.write(packet);
     } catch (err) {
       mjpegClients.delete(client);
     }
@@ -54,7 +56,8 @@ app.get('/stream', (req, res) => {
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*'
+    'Access-Control-Allow-Origin': '*',
+    'X-Accel-Buffering': 'no' // Tells Cloudflare/Render proxy to deliver frames instantly without buffering
   });
 
   mjpegClients.add(res);
