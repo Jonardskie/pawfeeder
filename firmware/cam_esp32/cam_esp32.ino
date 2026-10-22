@@ -133,8 +133,8 @@
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
-      config.frame_size   = FRAMESIZE_VGA;  // 640x480 native resolution (clear faces & details)
-      config.jpeg_quality = 10;             // High crisp quality (clean edges, low compression artifacts)
+      config.frame_size   = FRAMESIZE_HD;   // 1280x720 720p HD Widescreen (high clarity & sharpness)
+      config.jpeg_quality = 12;             // High crisp quality (balanced for HD buffer)
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {

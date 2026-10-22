@@ -85,13 +85,13 @@
   color: #e0f2fe;
 }
 
-/* Viewport */
+/* Viewport (16:9 HD widescreen) */
 .livefeed-viewport {
   position: relative;
   background: #000;
   border-radius: var(--radius);
   overflow: hidden;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 9;
   width: 100%;
 }
 

@@ -213,7 +213,7 @@ export default function LiveFeed() {
           <div className="livefeed-bottom-bar">
             <div className="livefeed-bar-left">
               <Signal size={13} />
-              <span>{streamMode === 'local' ? 'LAN 30 FPS' : 'Cloud 480p'}</span>
+              <span>{streamMode === 'local' ? 'LAN 720p HD' : 'Cloud 720p HD'}</span>
             </div>
 
             <div className="livefeed-bar-right">
