@@ -35,12 +35,13 @@
   // ── Outbound Cloud Video Relay Configuration ───────────────
   // The ESP32 pushes frames OUTBOUND to this relay.
   // Works from behind ANY home router or mobile data worldwide!
-  // (Change to your public Render/Cloudflare URL once deployed online)
   bool CLOUD_RELAY_ENABLED = true;
-  String RELAY_UPLOAD_URL = "http://192.168.100.33:3001/upload";
+  String RELAY_UPLOAD_URL = "https://pawfeeder-or3n.onrender.com/upload";
 
   WiFiServer server(80);
   WiFiClientSecure wifiClient;
+  WiFiClientSecure relayClient;
+  bool relayClientInited = false;
 
   // ── Indicator LEDs ─────────────────────────────────────────
   #define FLASH_LED_PIN 4   // Front white LED flash
@@ -251,9 +252,17 @@
     if (!fb) return;
 
     HTTPClient http;
-    http.begin(RELAY_UPLOAD_URL);
+    if (RELAY_UPLOAD_URL.startsWith("https://")) {
+      if (!relayClientInited) {
+        relayClient.setInsecure();
+        relayClientInited = true;
+      }
+      http.begin(relayClient, RELAY_UPLOAD_URL);
+    } else {
+      http.begin(RELAY_UPLOAD_URL);
+    }
     http.setReuse(true);
-    http.setTimeout(1500);
+    http.setTimeout(2500);
     http.addHeader("Content-Type", "image/jpeg");
 
     int code = http.POST((uint8_t*)fb->buf, fb->len);
