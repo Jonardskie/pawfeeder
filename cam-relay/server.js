@@ -39,6 +39,7 @@ app.post('/upload', (req, res) => {
 
   // Tell ESP32 how many active viewers there are
   // (If viewers == 0, ESP32 can slow down to save bandwidth)
+  res.set('Connection', 'keep-alive');
   res.json({
     ok: true,
     viewers: mjpegClients.size,

@@ -128,13 +128,13 @@
     config.pin_sscb_sda = SIOD_GPIO_NUM;
     config.pin_sscb_scl = SIOC_GPIO_NUM;
     config.pin_pwdn     = PWDN_GPIO_NUM;
-    config.xclk_freq_hz = 16500000;         // 16.5MHz prevents FB-OVF DMA buffer overflows
+    config.xclk_freq_hz = 20000000;         // 20MHz for high FPS sensor readout
     config.pixel_format = PIXFORMAT_JPEG;
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
-      config.frame_size   = FRAMESIZE_VGA;  // 640x480
-      config.jpeg_quality = 12;             // 0-63 (lower = higher quality)
+      config.frame_size   = FRAMESIZE_HVGA; // 480x320 — ideal for buttery-smooth 15-20 FPS cloud video
+      config.jpeg_quality = 14;             // Sharp image, compact 12-16KB frame size
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {
@@ -238,42 +238,54 @@
   // ── Outbound Cloud Frame Push Helper ───────────────────────
   int activeViewers = 0;
   unsigned long lastRelayPush = 0;
+  HTTPClient httpRelay;
+  bool httpRelayConnected = false;
 
   void pushFrameToRelay() {
     unsigned long now = millis();
     // Dynamic Frame Rate:
-    // If active viewers > 0: stream at ~10-12 FPS (every 80ms)
-    // If 0 viewers: heartbeat thumbnail every 2.5s to conserve bandwidth
-    unsigned long interval = (activeViewers > 0) ? 80 : 2500;
+    // If active viewers > 0: stream as fast as network allows (0ms delay) for maximum smoothness
+    // If 0 viewers: heartbeat snapshot every 1.5s to conserve bandwidth
+    unsigned long interval = (activeViewers > 0) ? 0 : 1500;
     if (now - lastRelayPush < interval) return;
     lastRelayPush = now;
 
     camera_fb_t* fb = esp_camera_fb_get();
     if (!fb) return;
 
-    HTTPClient http;
-    if (RELAY_UPLOAD_URL.startsWith("https://")) {
+    // Connect or reuse persistent HTTPS connection (avoids repeated 300ms TLS handshakes!)
+    if (!httpRelayConnected) {
       if (!relayClientInited) {
         relayClient.setInsecure();
         relayClientInited = true;
       }
-      http.begin(relayClient, RELAY_UPLOAD_URL);
-    } else {
-      http.begin(RELAY_UPLOAD_URL);
+      if (RELAY_UPLOAD_URL.startsWith("https://")) {
+        httpRelay.begin(relayClient, RELAY_UPLOAD_URL);
+      } else {
+        httpRelay.begin(RELAY_UPLOAD_URL);
+      }
+      httpRelay.setReuse(true);
+      httpRelay.setTimeout(2500);
+      httpRelayConnected = true;
     }
-    http.setReuse(true);
-    http.setTimeout(2500);
-    http.addHeader("Content-Type", "image/jpeg");
 
-    int code = http.POST((uint8_t*)fb->buf, fb->len);
+    httpRelay.addHeader("Content-Type", "image/jpeg");
+    httpRelay.addHeader("Connection", "keep-alive");
+
+    int code = httpRelay.POST((uint8_t*)fb->buf, fb->len);
     if (code == 200) {
-      String resp = http.getString();
+      String resp = httpRelay.getString();
       int vPos = resp.indexOf("\"viewers\":");
       if (vPos >= 0) {
         activeViewers = resp.substring(vPos + 10).toInt();
       }
+    } else {
+      // Reconnect on network drop or timeout
+      httpRelay.end();
+      relayClient.stop();
+      httpRelayConnected = false;
     }
-    http.end();
+
     esp_camera_fb_return(fb);
   }
 
