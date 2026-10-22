@@ -128,18 +128,18 @@
     config.pin_sscb_sda = SIOD_GPIO_NUM;
     config.pin_sscb_scl = SIOC_GPIO_NUM;
     config.pin_pwdn     = PWDN_GPIO_NUM;
-    config.xclk_freq_hz = 20000000;         // 20MHz for high FPS sensor readout
+    config.xclk_freq_hz = 16500000;         // 16.5MHz allows longer sensor exposure & eliminates DMA buffer noise
     config.pixel_format = PIXFORMAT_JPEG;
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
       config.frame_size   = FRAMESIZE_VGA;  // 640x480 native resolution (clear faces & details)
-      config.jpeg_quality = 12;             // Crisp quality with low compression artifacts
+      config.jpeg_quality = 10;             // High crisp quality (clean edges, low compression artifacts)
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {
       config.frame_size   = FRAMESIZE_QVGA; // 320x240 — fallback if no PSRAM
-      config.jpeg_quality = 16;
+      config.jpeg_quality = 14;
       config.fb_count     = 1;
       config.fb_location  = CAMERA_FB_IN_DRAM;
     }
@@ -152,20 +152,21 @@
     }
     Serial.println("Camera initialized OK");
 
-    // ── Sensor settings (natural colors, accurate white balance, no green tint) ──
+    // ── Sensor settings (bright indoor lighting, high clarity, clear faces) ──
     sensor_t* s = esp_camera_sensor_get();
     if (s) {
       s->set_vflip(s, 0);         // 1 = flip vertically if camera is mounted upside down
       s->set_hmirror(s, 0);       // 1 = mirror horizontally
-      s->set_brightness(s, 0);    // Neutral (natural light)
-      s->set_contrast(s, 0);      // Neutral
-      s->set_saturation(s, 0);    // Neutral (restores true skin tones & accurate colors)
+      s->set_brightness(s, 2);    // +2 Brightness (brightens dim indoor rooms)
+      s->set_contrast(s, 0);      // Neutral contrast
+      s->set_saturation(s, 0);    // Natural, true-to-life colors
       s->set_special_effect(s, 0);// Normal color mode
       s->set_whitebal(s, 1);      // Auto white balance
       s->set_awb_gain(s, 1);      // AWB gain
       s->set_wb_mode(s, 0);       // Auto WB mode
       s->set_exposure_ctrl(s, 1); // Auto exposure
-      s->set_gainceiling(s, GAINCEILING_2X);
+      s->set_ae_level(s, 2);      // +2 Target auto-exposure level (brightens overall frame)
+      s->set_gainceiling(s, GAINCEILING_16X); // 16X analog gain boost for clear low-light / indoor rooms
     }
 
     // ── WiFi Connection ───────────────────────────────────────
