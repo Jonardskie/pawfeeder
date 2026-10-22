@@ -284,3 +284,30 @@
 .livefeed-fullscreen-btn {
   padding: 5px;
 }
+
+/* Mobile Screen Adjustments (< 480px) */
+@media (max-width: 480px) {
+  .livefeed-header {
+    gap: 8px;
+  }
+  .livefeed-mode-switcher {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .livefeed-mode-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 0.7rem;
+  }
+  .livefeed-bottom-bar {
+    padding: 6px 10px;
+  }
+  .livefeed-bar-left span {
+    font-size: 0.65rem;
+  }
+  .livefeed-control-btn {
+    padding: 4px 8px;
+    font-size: 0.68rem;
+  }
+}

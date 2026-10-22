@@ -122,3 +122,21 @@ a { text-decoration: none; color: inherit; }
 .dot-red    { background: var(--red);   box-shadow: 0 0 6px var(--red); }
 .dot-amber  { background: var(--amber); }
 .dot-muted  { background: var(--text-muted); }
+
+/* ── Mobile Responsive Tokens & Cards ────────────────────────── */
+@media (max-width: 767px) {
+  :root {
+    --gap: 12px;
+    --gap-lg: 14px;
+    --radius-lg: 14px;
+  }
+
+  .card {
+    padding: 14px;
+    border-radius: var(--radius-lg);
+  }
+
+  .card-header {
+    margin-bottom: 12px;
+  }
+}
