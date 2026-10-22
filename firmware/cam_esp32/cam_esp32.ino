@@ -133,8 +133,8 @@
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
-      config.frame_size   = FRAMESIZE_HVGA; // 480x320 — ideal for buttery-smooth 15-20 FPS cloud video
-      config.jpeg_quality = 10;             // High crisp quality (lower compression artifacts)
+      config.frame_size   = FRAMESIZE_VGA;  // 640x480 native resolution (clear faces & details)
+      config.jpeg_quality = 12;             // Crisp quality with low compression artifacts
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {
@@ -152,26 +152,20 @@
     }
     Serial.println("Camera initialized OK");
 
-    // ── Sensor DSP enhancements (crisp edges, vivid color, low-light clarity) ──
+    // ── Sensor settings (natural colors, accurate white balance, no green tint) ──
     sensor_t* s = esp_camera_sensor_get();
     if (s) {
-      s->set_vflip(s, 0);         // 1 = flip vertically if needed
+      s->set_vflip(s, 0);         // 1 = flip vertically if camera is mounted upside down
       s->set_hmirror(s, 0);       // 1 = mirror horizontally
-      s->set_brightness(s, 1);    // Brightness (-2 to 2)
-      s->set_contrast(s, 1);      // +1 contrast for crisp food bowl details
-      s->set_saturation(s, 1);    // +1 saturation for rich colors
-      s->set_special_effect(s, 0);// Normal
-      s->set_whitebal(s, 1);      // Auto white balance on
-      s->set_awb_gain(s, 1);      // AWB gain on
+      s->set_brightness(s, 0);    // Neutral (natural light)
+      s->set_contrast(s, 0);      // Neutral
+      s->set_saturation(s, 0);    // Neutral (restores true skin tones & accurate colors)
+      s->set_special_effect(s, 0);// Normal color mode
+      s->set_whitebal(s, 1);      // Auto white balance
+      s->set_awb_gain(s, 1);      // AWB gain
       s->set_wb_mode(s, 0);       // Auto WB mode
-      s->set_exposure_ctrl(s, 1); // Auto exposure on
-      s->set_aec2(s, 1);          // Enhanced DSP auto exposure
-      s->set_gainceiling(s, GAINCEILING_4X); // Cleaner low-light (removes heavy sensor noise)
-      s->set_bpc(s, 1);           // Bad pixel correction (eliminates noisy sensor dots)
-      s->set_wpc(s, 1);           // White pixel correction
-      s->set_raw_gma(s, 1);       // Gamma curve correction (better shadow/highlight balance)
-      s->set_lenc(s, 1);          // Lens shading correction (brightens dark lens corners)
-      s->set_dcw(s, 1);           // Downsize interpolation filter (sharp edges)
+      s->set_exposure_ctrl(s, 1); // Auto exposure
+      s->set_gainceiling(s, GAINCEILING_2X);
     }
 
     // ── WiFi Connection ───────────────────────────────────────
