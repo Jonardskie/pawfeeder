@@ -66,8 +66,8 @@ float currentWeightGrams = 0.0;
 // ── LCD ────────────────────────────────────────────────────
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// ── Bipolar NEMA Stepping Sequence (Half-Step for Smooth Torque) ──
-int stepDelay = 3;  // ms per step (adjust 2-5ms for smooth NEMA rotation)
+// ── Bipolar NEMA Stepping Configuration (Fast & Smooth Continuous Rotation) ──
+int stepDelayUs = 1200; // Microseconds per half-step (1000-1400us gives fast 180+ RPM continuous torque)
 int sequence[8][4] = {
   {1, 0, 0, 0},
   {1, 0, 1, 0},
@@ -507,57 +507,79 @@ void triggerDispense(int grams, const char* source) {
 
 // ============================================================
 //  Closed-Loop Stepper Dispense (NEMA via L298N)
-//  Rotates motor until (currentWeight - startWeight) >= targetGrams
+//  High-Speed Continuous Rotation without stuttering pauses
+//  Rotates motor continuously until (currentWeight - startWeight) >= targetGrams
 // ============================================================
 void dispenseUntilWeight(float targetGrams, float startWeight) {
   unsigned long startTime = millis();
-  const unsigned long MAX_DISPENSE_TIME_MS = 25000UL; // 25s timeout
+  const unsigned long MAX_DISPENSE_TIME_MS = 25000UL; // 25s safety timeout
 
-  int stepChunk = 16; // Small step batches between scale checks
   float currentWeight = startWeight;
+  float dispensedSoFar = 0.0;
+  int stepIndex = 0;
+  unsigned long lastLcdUpdate = 0;
+  unsigned long lastScaleCheck = 0;
 
+  Serial.printf("[Dispense Start] Target: %.1fg (Starting Bowl Weight: %.1fg)\n", targetGrams, startWeight);
+
+  // Initial LCD display
+  char initialBuf[16];
+  snprintf(initialBuf, sizeof(initialBuf), "0g / %.0fg", targetGrams);
+  lcdShow("Dispensing...", initialBuf);
+
+  // ── High-Speed Continuous Rotation Loop ───────────────────
   while (true) {
-    // 1. Step NEMA motor in small batch
-    for (int s = 0; s < stepChunk; s++) {
-      for (int i = 0; i < 8; i++) {
-        digitalWrite(IN1, sequence[i][0]);
-        digitalWrite(IN2, sequence[i][1]);
-        digitalWrite(IN3, sequence[i][2]);
-        digitalWrite(IN4, sequence[i][3]);
-        delay(stepDelay);
+    // 1. Fire single microsecond step
+    digitalWrite(IN1, sequence[stepIndex][0]);
+    digitalWrite(IN2, sequence[stepIndex][1]);
+    digitalWrite(IN3, sequence[stepIndex][2]);
+    digitalWrite(IN4, sequence[stepIndex][3]);
+    delayMicroseconds(stepDelayUs);
+
+    stepIndex = (stepIndex + 1) % 8;
+
+    // 2. Periodic checks every 32 steps (~38ms) to maintain continuous speed
+    if (stepIndex == 0) {
+      unsigned long now = millis();
+
+      // Read scale non-blockingly without halting motor
+      if (now - lastScaleCheck >= 40) {
+        lastScaleCheck = now;
+        if (scale.is_ready()) {
+          float w = scale.get_units(1); // Ultra-fast 1-sample read
+          if (fabs(w) < 0.3) w = 0.0;
+          currentWeight = w;
+          dispensedSoFar = currentWeight - startWeight;
+          if (dispensedSoFar < 0.0) dispensedSoFar = 0.0;
+        }
       }
-    }
 
-    // 2. Read live weight from scale
-    if (scale.is_ready()) {
-      float w = scale.get_units(2); // Fast 2-sample read
-      if (fabs(w) < 0.3) w = 0.0;
-      currentWeight = w;
-    }
+      // 3. Update LCD periodically (every 350ms) without I2C motor stalling
+      if (now - lastLcdUpdate >= 350) {
+        lastLcdUpdate = now;
+        char liveBuf[16];
+        snprintf(liveBuf, sizeof(liveBuf), "%.0fg / %.0fg", dispensedSoFar, targetGrams);
+        lcd.setCursor(0, 0); lcd.print("Dispensing...   ");
+        lcd.setCursor(0, 1); lcd.print(liveBuf);
+        for (int k = strlen(liveBuf); k < 16; k++) lcd.print(" ");
 
-    float dispensedSoFar = currentWeight - startWeight;
-    if (dispensedSoFar < 0.0) dispensedSoFar = 0.0;
+        Serial.printf("  [Dispensing] Added: %.1fg / %.0fg (Bowl: %.1fg)\n",
+                      dispensedSoFar, targetGrams, currentWeight);
+      }
 
-    // 3. Update LCD in real-time
-    char liveBuf[16];
-    snprintf(liveBuf, sizeof(liveBuf), "%.0fg / %.0fg", dispensedSoFar, targetGrams);
-    lcdShow("Dispensing...", liveBuf);
+      // 4. STOP CONDITION: Target weight reached!
+      if (dispensedSoFar >= targetGrams) {
+        Serial.printf("  ✓ Target weight reached! Added: %.1fg (Stopping motor)\n", dispensedSoFar);
+        break;
+      }
 
-    Serial.printf("  [Dispense Progress] Added: %.1fg / Target: %.1fg (Live Bowl: %.1fg)\n",
-                  dispensedSoFar, targetGrams, currentWeight);
-
-    // 4. STOP CONDITION: Target weight reached!
-    if (dispensedSoFar >= targetGrams) {
-      Serial.println("  ✓ Target weight reached! Stopping NEMA motor immediately.");
-      break;
-    }
-
-    // 5. SAFETY TIMEOUT: Container empty or jam protection
-    if (millis() - startTime > MAX_DISPENSE_TIME_MS) {
-      Serial.println("  ⚠️ Safety timeout reached! Stopping NEMA motor to prevent burnout.");
-      lcdShow("Hopper Empty?", "Check Food");
-      delay(1500);
-      break;
+      // 5. SAFETY TIMEOUT: Container empty or mechanical jam protection
+      if (now - startTime > MAX_DISPENSE_TIME_MS) {
+        Serial.println("  ⚠️ Safety timeout reached! Stopping NEMA motor to prevent burnout.");
+        lcdShow("Hopper Empty?", "Check Food");
+        delay(1500);
+        break;
+      }
     }
   }
 
