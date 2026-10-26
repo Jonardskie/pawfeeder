@@ -105,8 +105,21 @@ export default function LiveFeed() {
     setTimeout(() => setLampBusy(false), 400)
   }
 
+  const [errorCount, setErrorCount] = useState(0)
+
   const handleStreamError = useCallback(() => {
-    setStatus(STATUS.ERROR)
+    setErrorCount(prev => {
+      const next = prev + 1
+      // If stream drops, try silent auto-reconnect up to 3 times before displaying error screen
+      if (next < 4) {
+        setTimeout(() => {
+          setStreamKey(Date.now())
+        }, 1200)
+      } else {
+        setStatus(STATUS.ERROR)
+      }
+      return next
+    })
   }, [])
 
   const handleFullscreen = useCallback(() => {
