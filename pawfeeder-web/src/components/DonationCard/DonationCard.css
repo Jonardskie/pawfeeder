@@ -95,6 +95,48 @@
   color: var(--text-primary);
 }
 
+/* Action buttons grid */
+.donation-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+@media (max-width: 520px) {
+  .donation-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.donation-gcash-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  font-weight: 700;
+  width: 100%;
+  background: linear-gradient(135deg, #007bff, #0056d2);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 14px rgba(0, 123, 255, 0.35);
+}
+
+.donation-gcash-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 123, 255, 0.5);
+}
+
+.donation-gcash-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Dispense button */
 .donation-dispense-btn {
   display: flex;
@@ -106,7 +148,6 @@
   font-size: 0.95rem;
   font-weight: 700;
   width: 100%;
-  margin-top: 4px;
   transition: all 0.2s;
 }
 

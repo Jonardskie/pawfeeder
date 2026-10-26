@@ -1,42 +1,57 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { ref, onValue } from 'firebase/database'
 import './ActivityLog.css'
 
-const MOCK_EVENTS = [
-  { id: 1, source: 'remote', grams: 150, minutesAgo: 2  },
-  { id: 2, source: 'coin',   grams: 75,  minutesAgo: 18 },
-  { id: 3, source: 'remote', grams: 30,  minutesAgo: 45 },
-  { id: 4, source: 'bill',   grams: 300, minutesAgo: 92 },
-  { id: 5, source: 'coin',   grams: 75,  minutesAgo: 134},
-  { id: 6, source: 'remote', grams: 150, minutesAgo: 210},
-]
+const FILTERS = ['all', 'gcash', 'coin']
 
-const FILTERS = ['all', 'remote', 'on-site']
-
-function formatTime(minutesAgo) {
-  if (minutesAgo < 60) return `${minutesAgo}m ago`
-  const h = Math.floor(minutesAgo / 60)
-  const m = minutesAgo % 60
-  return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`
+function formatRelativeTime(ts) {
+  if (!ts) return ''
+  const diffSec = Math.floor((Date.now() - ts) / 1000)
+  if (diffSec < 60) return 'Just now'
+  const min = Math.floor(diffSec / 60)
+  if (min < 60) return `${min}m ago`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const days = Math.floor(hr / 24)
+  return `${days}d ago`
 }
 
-function isOnSite(source) {
-  return source === 'coin' || source === 'bill'
-}
-
-export default function ActivityLog() {
+export default function ActivityLog({ db, unitId = 'unit001' }) {
   const [filter, setFilter] = useState('all')
+  const [donations, setDonations] = useState([])
 
-  const filtered = MOCK_EVENTS.filter(e => {
-    if (filter === 'all')     return true
-    if (filter === 'remote')  return e.source === 'remote'
-    if (filter === 'on-site') return isOnSite(e.source)
+  useEffect(() => {
+    if (!db) return
+    const donRef = ref(db, `feeder/${unitId}/donations`)
+    const unsub = onValue(donRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val()
+        const list = Object.entries(val).map(([key, item]) => ({
+          id: key,
+          ...item,
+        }))
+        // Sort descending by timestamp
+        list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        setDonations(list)
+      } else {
+        setDonations([])
+      }
+    })
+    return () => unsub()
+  }, [db, unitId])
+
+  const filtered = donations.filter(e => {
+    if (filter === 'all') return true
+    if (filter === 'gcash') return e.source === 'gcash_online' || e.refCode
+    if (filter === 'coin') return e.source === 'coin' || e.source === 'coin_slot'
     return true
   })
 
   return (
     <div className="activity card">
       <div className="card-header">
-        <span className="card-title">Recent Activity</span>
+        <span className="card-title">Recent Donations & Activity</span>
+        <span className="badge badge-accent">{donations.length} total</span>
       </div>
 
       {/* Filter pills */}
@@ -47,7 +62,7 @@ export default function ActivityLog() {
             className={`activity-filter-pill ${filter === f ? 'activity-filter-pill--active' : ''}`}
             onClick={() => setFilter(f)}
           >
-            {f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === 'all' ? 'All' : f === 'gcash' ? 'GCash' : 'Coin Slot'}
           </button>
         ))}
       </div>
@@ -55,22 +70,31 @@ export default function ActivityLog() {
       {/* Event list */}
       <div className="activity-list">
         {filtered.length === 0 ? (
-          <p className="activity-empty">No events match this filter.</p>
+          <p className="activity-empty">No activity records yet.</p>
         ) : (
-          filtered.map(event => (
-            <div key={event.id} className="activity-item animate-fade-in">
-              <span className={`dot ${isOnSite(event.source) ? 'dot-muted' : 'dot-green'}`} />
-              <div className="activity-item-info">
-                <span className="activity-item-grams">{event.grams}g dispensed</span>
-                <span className="activity-item-time">{formatTime(event.minutesAgo)}</span>
+          filtered.slice(0, 15).map(event => {
+            const isGCash = event.source === 'gcash_online' || !!event.refCode
+            return (
+              <div key={event.id} className="activity-item animate-fade-in">
+                <span className={`dot ${isGCash ? 'dot-green' : 'dot-muted'}`} />
+                <div className="activity-item-info">
+                  <span className="activity-item-grams">
+                    {event.donorName ? <strong>{event.donorName}</strong> : `${event.grams || 50}g dispensed`}
+                    {event.amountPhp ? ` • ₱${event.amountPhp}` : ''}
+                  </span>
+                  {event.message && (
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                      &ldquo;{event.message}&rdquo;
+                    </span>
+                  )}
+                  <span className="activity-item-time">{formatRelativeTime(event.timestamp)}</span>
+                </div>
+                <span className={`badge ${isGCash ? 'badge-green' : 'badge-accent'} activity-item-badge`}>
+                  {isGCash ? 'GCash' : 'Coin Slot'}
+                </span>
               </div>
-              <span className={`badge ${isOnSite(event.source) ? 'badge-accent' : 'badge-green'} activity-item-badge`}>
-                {isOnSite(event.source)
-                  ? event.source.charAt(0).toUpperCase() + event.source.slice(1)
-                  : 'Remote'}
-              </span>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>

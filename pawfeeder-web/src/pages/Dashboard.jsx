@@ -38,7 +38,7 @@ export default function Dashboard({ db, deviceStatus }) {
           totalCoins={deviceStatus?.total_coins_php}
           lastSeen={deviceStatus?.lastSeen}
         />
-        <ActivityLog />
+        <ActivityLog db={db} />
       </div>
     </div>
   )
