@@ -203,6 +203,105 @@
   flex-shrink: 0;
 }
 
+.donation-dispense-btn--locked {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.donation-dispense-btn--locked:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+.donation-pin-box {
+  background: var(--bg-input);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.donation-pin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.donation-pin-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.donation-pin-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.donation-pin-row {
+  display: flex;
+  gap: 8px;
+}
+
+.donation-pin-input {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-family: monospace;
+  letter-spacing: 0.1em;
+}
+
+.donation-pin-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.donation-pin-submit {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.donation-pin-error {
+  font-size: 0.7rem;
+  color: var(--red);
+  font-weight: 600;
+}
+
+.donation-lock-link {
+  margin-left: 8px;
+  background: transparent;
+  border: none;
+  color: var(--amber);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Firebase notice */
 .donation-notice {
   display: flex;

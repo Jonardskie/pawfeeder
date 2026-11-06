@@ -16,6 +16,29 @@
 #define COIN_PIN       18   // White wire from Coin Slot
 #define BUTTON_PIN     5    // Push button to GND
 #define LED_PIN        14   // Built-in / Status LED
+#define BUZZER_PIN     4    // Active Buzzer (+ to D4, - to GND)
+
+// ── Buzzer Feedback Helpers (High-Volume Resonant Frequency) ──
+#define BUZZER_FREQ 2700
+
+void buzzerBeep(int durationMs = 100) {
+  tone(BUZZER_PIN, BUZZER_FREQ);
+  delay(durationMs);
+  noTone(BUZZER_PIN);
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+void buzzerDoubleBeep() {
+  tone(BUZZER_PIN, BUZZER_FREQ);
+  delay(70);
+  noTone(BUZZER_PIN);
+  digitalWrite(BUZZER_PIN, LOW);
+  delay(70);
+  tone(BUZZER_PIN, BUZZER_FREQ);
+  delay(70);
+  noTone(BUZZER_PIN);
+  digitalWrite(BUZZER_PIN, LOW);
+}
 
 // L298N Stepper Driver (NEMA Bipolar)
 #define IN1 23
@@ -40,13 +63,10 @@ volatile bool isDispensing = false;
 
 void IRAM_ATTR onCoinPulse() {
   unsigned long now = millis();
-  // Filter out electrical spikes: real coin pulses are > 40ms apart and hold pin LOW
-  if (!isDispensing && (now - lastCoinIsrTime > 40)) {
-    if (digitalRead(COIN_PIN) == LOW) {
-      rawPulseCount++;
-      lastPulseMillis = now;
-      lastCoinIsrTime = now;
-    }
+  if (!isDispensing && (now - lastCoinIsrTime > 15)) {
+    rawPulseCount++;
+    lastPulseMillis = now;
+    lastCoinIsrTime = now;
   }
 }
 
@@ -98,10 +118,13 @@ void setup() {
   pinMode(IN4, OUTPUT);
   stepperOff();
 
-  // LED & Button
+  // LED, Button & Buzzer
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   digitalWrite(LED_PIN, LOW);
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
+  buzzerBeep(100); // Startup chirp
 
   // Coin Pin (Internal Pull-Up)
   pinMode(COIN_PIN, INPUT_PULLUP);
@@ -159,6 +182,12 @@ void loop() {
     } else if (ch == 't' || ch == 'T') {
       scale.tare(10);
       Serial.println("[Scale] Tared to 0.0g");
+    } else if (ch == 'b' || ch == 'B') {
+      Serial.println("\n[BUZZER TEST] Beeping GPIO 4...");
+      buzzerBeep(150);
+      delay(100);
+      buzzerDoubleBeep();
+      Serial.println("[BUZZER TEST] OK ✓");
     } else if (ch == '1') {
       // Simulate P10 -> 50g
       runClosedLoopDispense(50, 10);
@@ -254,6 +283,8 @@ void runClosedLoopDispense(int targetGrams, int php) {
   lcd.clear();
   lcd.setCursor(0, 0); lcd.print(line1);
 
+  buzzerDoubleBeep(); // Double chirp: Alert that motor is starting
+
   unsigned long startTime = millis();
   const unsigned long TIMEOUT_MS = 30000UL; // 30s max safety cutoff
 
@@ -305,6 +336,7 @@ void runClosedLoopDispense(int targetGrams, int php) {
   lcd.clear();
   lcd.setCursor(0, 0); lcd.print("Dispense Done!  ");
   lcd.setCursor(0, 1); lcd.printf("Added: %.1fg", totalDispensed);
+  buzzerBeep(250); // Confirmation beep: food ready
   delay(1500);
 
   // Flush noise and re-enable interrupt

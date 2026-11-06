@@ -689,3 +689,161 @@
   transform: translateY(-2px);
   box-shadow: 0 6px 26px rgba(0,123,255,0.55);
 }
+
+/* ─── Receipt Screenshot Upload & OCR Scanner ─── */
+.gcash-upload-box {
+  background: rgba(0, 123, 255, 0.06);
+  border: 1.5px dashed rgba(0, 123, 255, 0.38);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.gcash-upload-box:hover {
+  background: rgba(0, 123, 255, 0.11);
+  border-color: rgba(0, 123, 255, 0.65);
+}
+
+.gcash-upload-box--has-file {
+  background: rgba(0, 200, 150, 0.06);
+  border: 1px solid rgba(0, 200, 150, 0.35);
+}
+
+.gcash-upload-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  text-align: center;
+}
+
+.gcash-upload-icon {
+  color: #007bff;
+  margin-bottom: 2px;
+}
+
+.gcash-upload-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.gcash-upload-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.gcash-upload-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gcash-receipt-thumb {
+  width: 58px;
+  height: 76px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  flex-shrink: 0;
+}
+
+.gcash-upload-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.gcash-upload-filename {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gcash-scan-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.gcash-scan-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: #007bff;
+  font-weight: 600;
+}
+
+.gcash-scan-bar {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.gcash-scan-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #007bff, #00c896);
+  transition: width 0.2s ease;
+}
+
+.gcash-scan-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.gcash-check-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+
+.gcash-check-pill.ok {
+  background: rgba(0, 200, 150, 0.16);
+  color: #00c896;
+  border: 1px solid rgba(0, 200, 150, 0.3);
+}
+
+.gcash-check-pill.warn {
+  background: rgba(255, 180, 0, 0.14);
+  color: #ffbe3b;
+  border: 1px solid rgba(255, 180, 0, 0.3);
+}
+
+.gcash-upload-change {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
+
+.gcash-manual-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  color: #58a6ff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gcash-manual-toggle:hover {
+  text-decoration: underline;
+}

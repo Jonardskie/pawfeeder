@@ -5,16 +5,9 @@ import { db } from './lib/firebase'
 import DashboardLayout from './components/layout/DashboardLayout'
 import Dashboard       from './pages/Dashboard'
 import LiveFeedPage    from './pages/LiveFeedPage'
+import DonatePage      from './pages/DonatePage'
+import LogsPage        from './pages/LogsPage'
 import Settings        from './pages/Settings'
-
-// Placeholder pages
-const Placeholder = ({ title }) => (
-  <div style={{ color: 'var(--text-muted)', padding: '40px 0', textAlign: 'center' }}>
-    <div style={{ fontSize: '2rem', marginBottom: 12 }}>🚧</div>
-    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{title}</div>
-    <div style={{ fontSize: '0.8rem', marginTop: 6 }}>Coming in a future phase.</div>
-  </div>
-)
 
 export default function App() {
   const [deviceStatus, setDeviceStatus] = useState({
@@ -24,6 +17,7 @@ export default function App() {
     food_pct: 75,
     bowl_weight_g: 0.0,
     total_coins_php: 0,
+    balance_php: 0,
     lastSeen: 'Connecting...',
   })
 
@@ -41,6 +35,7 @@ export default function App() {
         food_pct: d.food_level_pct ?? 75,
         bowl_weight_g: d.bowl_weight_g ?? 0.0,
         total_coins_php: d.total_collected_php ? parseInt(d.total_collected_php) : 0,
+        balance_php: d.balance_php ? parseInt(d.balance_php) : 0,
         lastSeen: d.uptime_s
           ? `${d.uptime_s}s uptime`
           : 'Just connected',
@@ -55,8 +50,8 @@ export default function App() {
         <Routes>
           <Route path="/"         element={<Dashboard db={db} deviceStatus={deviceStatus} />} />
           <Route path="/feed"     element={<LiveFeedPage />} />
-          <Route path="/donate"   element={<Placeholder title="Donate — coming soon" />} />
-          <Route path="/logs"     element={<Placeholder title="Dispense Logs — coming soon" />} />
+          <Route path="/donate"   element={<DonatePage db={db} deviceStatus={deviceStatus} />} />
+          <Route path="/logs"     element={<LogsPage db={db} />} />
           <Route path="/settings" element={<Settings db={db} />} />
         </Routes>
       </DashboardLayout>
