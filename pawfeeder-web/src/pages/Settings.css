@@ -7,6 +7,98 @@
 
 .settings-header { margin-bottom: -8px; }
 
+.settings-header--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Admin Lock Screen */
+.settings-lock-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 20px 12px;
+}
+
+.settings-lock-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 26px;
+  max-width: 400px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.settings-lock-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.settings-lock-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.settings-lock-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 6px;
+}
+
+.settings-lock-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-pin-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-input, rgba(15, 23, 42, 0.6));
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-align: center;
+  letter-spacing: 0.12em;
+  outline: none;
+}
+
+.settings-pin-input:focus {
+  border-color: var(--accent);
+}
+
+.settings-pin-error {
+  font-size: 0.76rem;
+  color: #f87171;
+}
+
+.settings-unlock-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 16px;
+}
+
 .settings-title {
   font-size: 1.4rem;
   font-weight: 700;
@@ -66,6 +158,10 @@
 
 .settings-card-icon--blue   { background: rgba(96,165,250,0.15); color: #60a5fa; }
 .settings-card-icon--purple { background: rgba(167,139,250,0.15); color: #a78bfa; }
+.settings-card-icon--amber  { background: rgba(251,191,36,0.15); color: #fbbf24; }
+.settings-card-icon--rose   { background: rgba(244,63,94,0.15);  color: #fb7185; }
+.settings-card-icon--green  { background: rgba(34,197,94,0.15);  color: #4ade80; }
+.settings-card-icon--cyan   { background: rgba(34,211,238,0.15); color: #22d3ee; }
 
 .settings-card-title {
   font-weight: 600;

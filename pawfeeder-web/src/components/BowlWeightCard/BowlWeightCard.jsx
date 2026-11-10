@@ -5,6 +5,7 @@ import './BowlWeightCard.css'
 
 export default function BowlWeightCard({ db, weight = 0, online = false }) {
   const [taring, setTaring] = useState(false)
+  const isAdmin = sessionStorage.getItem('pawfeeder_admin_unlocked') === 'true'
   const currentWeight = Math.max(0, Number(weight) || 0)
 
   // Max scale visual limit for bowl (200g)
@@ -77,17 +78,19 @@ export default function BowlWeightCard({ db, weight = 0, online = false }) {
         </div>
       </div>
 
-      {/* Quick Tare Action */}
+      {/* Quick Tare Action (Admin Only) */}
       <div className="bowl-card-footer">
-        <button
-          className="bowl-tare-btn"
-          onClick={handleTare}
-          disabled={!online || taring}
-          title="Zero out the scale (assumes bowl is empty)"
-        >
-          <RotateCcw size={13} className={taring ? 'spin-icon' : ''} />
-          {taring ? 'Zeroing Scale...' : 'Zero Scale (Tare)'}
-        </button>
+        {isAdmin && (
+          <button
+            className="bowl-tare-btn"
+            onClick={handleTare}
+            disabled={!online || taring}
+            title="Zero out the scale (assumes bowl is empty)"
+          >
+            <RotateCcw size={13} className={taring ? 'spin-icon' : ''} />
+            {taring ? 'Zeroing Scale...' : 'Zero Scale (Tare)'}
+          </button>
+        )}
         <span className="bowl-footer-hint">
           {online ? 'Updates automatically via HX711' : 'Waiting for device...'}
         </span>

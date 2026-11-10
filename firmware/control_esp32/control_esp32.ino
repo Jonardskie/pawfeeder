@@ -1,41 +1,7 @@
 // ============================================================
-//  PawFeeder — Control ESP32 Firmware (FINAL v3 — TORQUE BOOST)
-//  NEMA Stepper (L298N) + Allan 1239 ProMax Coin Slot + HX711 Scale
-//  Closed-Loop Weight Dispense + WiFiManager + Firebase (No Buzzer)
+//  PawFeeder — Control ESP32 Firmware (FINAL v5.3 — Anti-Clog Auger + Stabilized Scale)
+//  NEMA Stepper (TB6600) + Allan 1239 ProMax Coin Slot + HX711 Scale
 //  Board: ESP32 Dev Module
-// ============================================================
-//
-//  COIN TIERS (strict — no rounding):
-//    P10 -> 50g   P30 -> 150g   P50 -> 250g
-//    P70 -> 350g  P90 -> 450g
-//
-//  BALANCE BEHAVIOR:
-//    - Coins accumulate in a running balance.
-//    - If balance matches a tier -> dispense immediately (after 2.5s coin gap).
-//    - If balance is NOT a tier -> hold balance, LCD "Balance Pxx / Need Py more",
-//      start/restart a 2-minute countdown.
-//    - If 2 minutes pass with no new coin AND balance is not a tier ->
-//      reset balance to 0, log { php, at } to /event/unclaimed on Firebase.
-//
-//  v3 TORQUE BOOST (L298N + NEMA):
-//   #1  stepDelayUs 1200 -> 3000  (slower = more torque per step)
-//   #2  Removed ramp-up (full torque from step 1)
-//   #3  Full-step sequence (2 coils always on = ~40% more torque)
-//   #4  Re-energize coils between scale reads (no cooling between chunks)
-//
-//  v2 FIXES STILL PRESENT:
-//   #A  ISR debounce 50 -> 150 ms (kills coin-slot idle hum / EMI pulses)
-//   #B  parseCoinBurst: single-coin snap absorbs 1-3 noise pulses
-//       (fixes "₱20 reads as ₱21")
-//   #C  Debug print every 10 s showing balance + timer elapsed
-//
-//  GPIO PIN MAP
-//  ─────────────────────────────────────────────────────────
-//  NEMA Stepper (L298N): IN1=23  IN2=22  IN3=19  IN4=21
-//  Coin Slot (Allan):    COIN=18 (D18 - Interrupt)
-//  Weight Scale (HX711): DT=25 (D25)  SCK=26 (D26)
-//  LCD I2C:              SDA=32  SCL=33  (address 0x27)
-//  Status LED:           GPIO 14
 // ============================================================
 
 #include <Wire.h>
@@ -50,20 +16,19 @@
 // ── Firebase ───────────────────────────────────────────────
 #define FIREBASE_DB_URL "https://paw-feeder-faed3-default-rtdb.firebaseio.com"
 
-// ── Stepper ────────────────────────────────────────────────
-#define IN1 23
-#define IN2 22
-#define IN3 19
-#define IN4 21
+// ── TB6600 Stepper ─────────────────────────────────────────
+#define PUL_PIN 21
+#define DIR_PIN 19
+#define DIR_FORWARD LOW    // Flip LOW/HIGH if your auger spins backwards
+#define DIR_REVERSE HIGH
 
-// ── LED ────────────────────────────────────────────────────
-#define LED_PIN 14
+// ── Status LED ─────────────────────────────────────────────
+#define LED_PIN 4
 
 // ── Coin acceptor ──────────────────────────────────────────
 #define COIN_PIN 18
 volatile int coinPulseCount = 0;
 volatile unsigned long lastPulseTime = 0;
-volatile unsigned long lastCoinInterruptTime = 0;
 volatile bool dispensing = false;
 
 int totalCollectedPhp = 0;
@@ -72,54 +37,114 @@ int balancePhp        = 0;
 Preferences prefs;
 
 void IRAM_ATTR coinInterrupt() {
-  unsigned long now = millis();
-  // [v2 #A] 150 ms debounce — accepts real coin pulses (50-60 ms apart),
-  //          rejects idle hum from the acceptor (<100 ms apart).
-  if (!dispensing && (now - lastCoinInterruptTime > 150)) {
-    coinPulseCount++;
-    lastPulseTime = now;
-    lastCoinInterruptTime = now;
+  if (dispensing) return;
+
+  // 1. Measure how long the signal stays LOW (real pulse is >2ms)
+  unsigned long startLow = micros();
+  while (digitalRead(COIN_PIN) == LOW) {
+    // Wait for it to go HIGH, but timeout after 10ms just in case
+    if (micros() - startLow > 10000) break;
   }
+  unsigned long duration = micros() - startLow;
+
+  // 2. If the pulse was shorter than 2ms, it's NOISE. Ignore it.
+  if (duration < 2000) return;
+
+  // 3. If the pulse was longer than 2ms, it's a REAL COIN.
+  coinPulseCount++;
+  lastPulseTime = millis();
 }
 
-// ── HX711 ──────────────────────────────────────────────────
+// ── HX711 Scale (Interrupt-Protected + Median Filtered) ────
 #define HX711_DOUT_PIN 25
 #define HX711_SCK_PIN  26
 HX711 scale;
-float calibrationFactor = 944.49;
-float currentWeightGrams = 0.0;
-long tareBaseline = 0;
+float calibrationFactor  = 944.49f;
+float currentWeightGrams = 0.0f;
+long  tareBaseline       = 0;
+
+// Rolling 3-sample buffer for live idle LCD smoothing
+long  rawRing[3]         = {0, 0, 0};
+uint8_t rawRingIdx       = 0;
+bool  rawRingFilled      = false;
+unsigned long lastScaleReadyTime = 0;
+
+// Sort helper for median calculation
+static void sortLongs(long *arr, int n) {
+  for (int i = 0; i < n - 1; i++) {
+    for (int j = i + 1; j < n; j++) {
+      if (arr[j] < arr[i]) {
+        long tmp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = tmp;
+      }
+    }
+  }
+}
+
+// Interrupt-safe 24-bit read so WiFi / Coin ISR cannot stretch SCK > 60us
+long readScaleRawSafe() {
+  noInterrupts();
+  long raw = scale.read();
+  interrupts();
+  return raw;
+}
+
+// Read N samples and return the middle (median) value to reject EMI spikes
+bool readScaleMedianRaw(int samples, long &medianOut, unsigned long timeoutMs = 400) {
+  if (samples < 1) samples = 1;
+  if (samples > 15) samples = 15;
+  long buf[15];
+  int count = 0;
+
+  for (int i = 0; i < samples; i++) {
+    if (!scale.wait_ready_timeout(timeoutMs)) {
+      // Wake HX711 in case SCK glitch put it into power-down mode
+      scale.power_down();
+      delay(5);
+      scale.power_up();
+      if (!scale.wait_ready_timeout(timeoutMs)) continue;
+    }
+    long r = readScaleRawSafe();
+    // Reject stuck-rail 24-bit saturation values (-8388608 or +8388607) or 0
+    if (r == 0 || r <= -8388600L || r >= 8388600L) continue;
+    buf[count++] = r;
+    if (i < samples - 1) delay(15);
+  }
+
+  if (count == 0) return false;
+  sortLongs(buf, count);
+  medianOut = buf[count / 2];
+  lastScaleReadyTime = millis();
+  return true;
+}
 
 void tareScale() {
-  long sum = 0;
-  for (int i = 0; i < 5; i++) {
-    scale.wait_ready(200);
-    sum += scale.read();
-    delay(110);
+  long med = 0;
+  if (readScaleMedianRaw(9, med, 500)) {
+    tareBaseline = med;
+    for (int i = 0; i < 3; i++) rawRing[i] = med;
+    rawRingFilled = true;
+    currentWeightGrams = 0.0f;
+    Serial.printf("[Scale] Tared! Baseline = %ld (calFactor = %.2f)\n", tareBaseline, calibrationFactor);
+  } else {
+    Serial.println("[Scale] Tare failed — HX711 not ready.");
   }
-  tareBaseline = sum / 5;
-  currentWeightGrams = 0.0;
 }
 
 // ── LCD ────────────────────────────────────────────────────
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// ── Stepper sequences ──────────────────────────────────────
-// [v3 #1] Slower step delay = more torque per step
-int stepDelayUs = 3000;
+// ── Stepper Speed & Anti-Clog Tuning ───────────────────────
+int stepDelayUs       = 2000;  // Normal forward cruising speed (us)
+int torqueStepDelayUs = 2800;  // Slower step rate = HIGHER stepper torque for unjamming
 
-// [v3 #3] Full-step sequence — 2 coils always energized = max torque
-int sequenceFull[4][4] = {
-  {1, 1, 0, 0},
-  {0, 1, 1, 0},
-  {0, 0, 1, 1},
-  {1, 0, 0, 1}
-};
-
-// ── Dispense tuning ────────────────────────────────────────
-#define RUN_CHUNK_MS   250
-#define SETTLE_MS      120
-#define EARLY_STOP_G   0.0f
+#define RUN_CHUNK_MS         260   // Forward run per dispense chunk
+#define MICRO_BACK_MS        40    // Brief reverse "peck" every 3 chunks to prevent wedging
+#define SETTLE_MS            120   // Scale settle time after motor stops
+#define EARLY_STOP_G         0.0f
+#define STALL_CHUNKS_LIMIT   6     // Trigger full unjam if weight doesn't rise for 6 chunks (~1.6s)
+#define MIN_PROGRESS_G       1.5f  // Minimum weight gain (g) to count as flowing
 
 // ── Balance timer ──────────────────────────────────────────
 #define BALANCE_TIMEOUT_MS 120000UL   // 2 minutes
@@ -134,7 +159,7 @@ unsigned long lastPoll      = 0;
 unsigned long lastHeartbeat = 0;
 
 // ── Food level ─────────────────────────────────────────────
-float foodLevelPct = 75.0;
+float foodLevelPct = 75.0f;
 
 // ── TLS client ─────────────────────────────────────────────
 WiFiClientSecure wifiClient;
@@ -153,207 +178,152 @@ int tierToGrams(int php) {
   }
 }
 
-bool isTier(int php) {
-  return tierToGrams(php) > 0;
-}
+bool isTier(int php) { return tierToGrams(php) > 0; }
 
 int nextTierAbove(int php) {
   const int tiers[] = {10, 30, 50, 70, 90};
-  for (int i = 0; i < 5; i++) {
-    if (tiers[i] > php) return tiers[i];
-  }
+  for (int i = 0; i < 5; i++) { if (tiers[i] > php) return tiers[i]; }
   return -1;
 }
 
 // ============================================================
-//  Coin parsing  (pulses == pesos)
+//  Coin parsing (STRICT SNAPPING)
 // ============================================================
 int parseCoinBurst(int totalPulses) {
-  // Trim up to 6 trailing noise pulses on multi-coin bursts
+  // Clean up trailing noise on large bursts
   if (totalPulses > 50) {
     int mod = totalPulses % 10;
     if (mod > 0 && mod <= 6) totalPulses -= mod;
   }
 
-  // [v2 #B] Snap single-coin bursts (absorbs 1-3 noise pulses)
-  if (totalPulses <= 55) {
-    if (totalPulses >= 8  && totalPulses <= 12) return 10;
-    if (totalPulses >= 17 && totalPulses <= 23) return 20;
-    if (totalPulses >= 47 && totalPulses <= 53) return 50;
-  }
+  // Strict mapping (The hardware filter should give us exact numbers now)
+  if (totalPulses >= 8  && totalPulses <= 13) return 10;  // ₱10
+  if (totalPulses >= 17 && totalPulses <= 23) return 20;  // ₱20
+  if (totalPulses >= 47 && totalPulses <= 53) return 50;  // ₱50
 
-  const int denoms[] = {50, 20, 10, 5, 1};
-  int remaining = totalPulses;
-  int php = 0;
+  if (totalPulses >= 26 && totalPulses <= 38) return 40;  // 20+20
+  if (totalPulses >= 56 && totalPulses <= 68) return 60;  // 50+10 or 20+20+20
+  if (totalPulses >= 75 && totalPulses <= 85) return 80;  // 20+20+20+20
+  if (totalPulses >= 86 && totalPulses <= 100) return 90; // 50+20+20
 
-  for (int i = 0; i < 4; i++) {
-    while (remaining >= denoms[i]) {
-      remaining -= denoms[i];
-      php       += denoms[i];
-    }
-  }
-  if (remaining > 0) {
-    const int small[] = {1, 5, 10, 20, 50};
-    int best = 1, bestDiff = abs(remaining - 1);
-    for (int j = 1; j < 5; j++) {
-      int d = abs(remaining - small[j]);
-      if (d < bestDiff) { bestDiff = d; best = small[j]; }
-    }
-    if (bestDiff <= 3) php += best;
-  }
-  return php;
+  return -1;
 }
 
 // ============================================================
 //  LCD / Firebase helpers
 // ============================================================
 void lcdShow(const char* line1, const char* line2 = "") {
-  lcd.clear();
-  lcd.setCursor(0, 0); lcd.print(line1);
-  lcd.setCursor(0, 1); lcd.print(line2);
+  char l1[17], l2[17];
+  snprintf(l1, sizeof(l1), "%-16.16s", line1 ? line1 : "");
+  snprintf(l2, sizeof(l2), "%-16.16s", line2 ? line2 : "");
+  lcd.setCursor(0, 0); lcd.print(l1);
+  lcd.setCursor(0, 1); lcd.print(l2);
+}
+
+void lcdShowLine2(const char* line2) {
+  char l2[17];
+  snprintf(l2, sizeof(l2), "%-16.16s", line2 ? line2 : "");
+  lcd.setCursor(0, 1); lcd.print(l2);
 }
 
 bool fbSet(const char* path, String jsonValue) {
   if (WiFi.status() != WL_CONNECTED) return false;
-  HTTPClient http;
-  String url = String(FIREBASE_DB_URL) + path + ".json";
-  http.begin(wifiClient, url);
-  http.setTimeout(8000);
+  HTTPClient http; String url = String(FIREBASE_DB_URL) + path + ".json";
+  http.begin(wifiClient, url); http.setTimeout(8000);
   http.addHeader("Content-Type", "application/json");
-  int code = http.PUT(jsonValue);
-  http.end();
+  int code = http.PUT(jsonValue); http.end();
   return (code == 200);
 }
 
 bool fbPatch(const char* path, String jsonObject) {
   if (WiFi.status() != WL_CONNECTED) return false;
-  HTTPClient http;
-  String url = String(FIREBASE_DB_URL) + path + ".json";
-  http.begin(wifiClient, url);
-  http.setTimeout(8000);
+  HTTPClient http; String url = String(FIREBASE_DB_URL) + path + ".json";
+  http.begin(wifiClient, url); http.setTimeout(8000);
   http.addHeader("Content-Type", "application/json");
-  int code = http.sendRequest("PATCH", jsonObject);
-  http.end();
+  int code = http.sendRequest("PATCH", jsonObject); http.end();
   return (code == 200);
 }
 
 String fbGet(const char* path) {
   if (WiFi.status() != WL_CONNECTED) return "";
-  HTTPClient http;
-  String url = String(FIREBASE_DB_URL) + path + ".json";
-  http.begin(wifiClient, url);
-  http.setTimeout(8000);
-  int code = http.GET();
-  String payload = "";
+  HTTPClient http; String url = String(FIREBASE_DB_URL) + path + ".json";
+  http.begin(wifiClient, url); http.setTimeout(8000);
+  int code = http.GET(); String payload = "";
   if (code == 200) payload = http.getString();
-  http.end();
-  return payload;
+  http.end(); return payload;
 }
 
-// Forward declarations
-void stepperOff();
-void energizeCoil(int stepIndex);
+void motorPulse(int delayUs = stepDelayUs);
+bool runMotorTimed(uint8_t dir, unsigned long durationMs, int targetDelayUs, bool allowSerialStop = true);
+void unjamAuger();
 float readBowlWeight();
 void triggerDispense(int grams, const char* source);
 void dispenseUntilWeight(float targetGrams, float startWeight);
 void showBalanceLcd();
+void calibrateScaleInteractive(float knownGrams);
 
 // ============================================================
 //  SETUP
 // ============================================================
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n== PawFeeder Control ESP32 (NEMA L298N + Coin + Scale) v3 ==");
+  Serial.println("\n== PawFeeder Control ESP32 v5.3 (Anti-Clog Auger + Stabilized Scale) ==");
 
   prefs.begin("pawfeeder", false);
   totalCollectedPhp = prefs.getInt("total_php", 0);
-  Serial.printf("[NVS] Restored totalCollectedPhp = %d PHP\n", totalCollectedPhp);
+  calibrationFactor = prefs.getFloat("cal_factor", 944.49f);
+  if (isnan(calibrationFactor) || fabs(calibrationFactor) < 1.0f) {
+    calibrationFactor = 944.49f;
+  }
+  Serial.printf("[NVS] totalCollectedPhp = %d PHP | calFactor = %.2f\n", totalCollectedPhp, calibrationFactor);
 
-  pinMode(IN1, OUTPUT); pinMode(IN2, OUTPUT);
-  pinMode(IN3, OUTPUT); pinMode(IN4, OUTPUT);
-  stepperOff();
-
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
+  pinMode(PUL_PIN, OUTPUT); pinMode(DIR_PIN, OUTPUT);
+  digitalWrite(PUL_PIN, LOW); digitalWrite(DIR_PIN, DIR_FORWARD);
+  pinMode(LED_PIN, OUTPUT); digitalWrite(LED_PIN, LOW);
 
   pinMode(COIN_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(COIN_PIN), coinInterrupt, FALLING);
-  Serial.println("[Coin Slot] Allan 1239 ProMax active on Pin D18 OK (150ms debounce)");
 
-  Wire.begin(32, 33);
-  Wire.setClock(400000);
-  lcd.init();
-  lcd.backlight();
-  lcdShow("PawFeeder", "Starting...");
-  Serial.println("LCD OK");
+  Wire.begin(32, 33); Wire.setClock(400000);
+  lcd.init(); lcd.backlight(); lcdShow("PawFeeder", "Starting...");
 
   lcdShow("Calibrating", "Weight Scale...");
   scale.begin(HX711_DOUT_PIN, HX711_SCK_PIN);
-
   unsigned long t0 = millis();
   while (!scale.is_ready() && millis() - t0 < 3000) delay(50);
 
   if (scale.is_ready()) {
-    Serial.println("[Scale] Keep scale EMPTY... taring baseline");
     tareScale();
-    Serial.printf("[Scale] Ready! Baseline: %ld\n", tareBaseline);
     lcdShow("Scale Ready!", "Tared to 0.0g");
   } else {
-    Serial.println("[Scale] HX711 NOT FOUND -- check DOUT=25, SCK=26");
     lcdShow("Scale Warn", "Check D25/D26");
   }
   delay(1200);
 
-  WiFiManager wm;
-  wm.setConnectTimeout(20);
-  wm.setConfigPortalTimeout(120);
-  wm.setAPCallback([](WiFiManager* wm) {
-    lcdShow("Connect phone:", "PawFeeder-Setup");
-    Serial.println("[WiFi] Portal: PawFeeder-Setup pw: pawfeeder123 -> 192.168.4.1");
-  });
-
+  WiFiManager wm; wm.setConnectTimeout(20); wm.setConfigPortalTimeout(120);
   lcdShow("Connecting", "WiFi...");
   bool connected = wm.autoConnect("PawFeeder-Setup", "pawfeeder123");
 
   if (!connected) {
-    Serial.println("[WiFi] No connection -- Offline Coin Mode");
     lcdShow("WiFi Offline", "Coin Mode Only");
     delay(2000);
   } else {
-    Serial.printf("\nWiFi OK -- IP: %s\n", WiFi.localIP().toString().c_str());
-    lcdShow("WiFi OK!", WiFi.localIP().toString().c_str());
-    delay(1500);
+    lcdShow("WiFi OK!", WiFi.localIP().toString().c_str()); delay(1500);
     wifiClient.setInsecure();
-
     lcdShow("Firebase...", "Connecting");
-    String initJson = "{\"online\":true,\"food_level_pct\":75.0,"
-                      "\"total_collected_php\":" + String(totalCollectedPhp) + ","
-                      "\"balance_php\":0}";
-    bool ok = fbPatch("/feeder/unit001/status", initJson);
-    if (ok) {
-      Serial.println("[Firebase] Initial write OK");
-      lcdShow("Firebase OK!", "All systems go");
-    } else {
-      Serial.println("[Firebase] Write failed");
-      lcdShow("Firebase WARN", "Check Serial");
-    }
+    String initJson = "{\"online\":true,\"food_level_pct\":75.0,\"total_collected_php\":" + String(totalCollectedPhp) + ",\"balance_php\":0}";
+    if (fbPatch("/feeder/unit001/status", initJson)) { lcdShow("Firebase OK!", "All systems go"); }
+    else { lcdShow("Firebase WARN", "Check Serial"); }
     delay(1000);
   }
 
-  noInterrupts();
-  coinPulseCount = 0;
-  lastPulseTime = 0;
-  lastCoinInterruptTime = millis();
-  interrupts();
+  if (scale.is_ready()) tareScale();
 
-  if (scale.is_ready()) {
-    tareScale();
-    Serial.printf("[Scale] Idle baseline: %ld\n", tareBaseline);
-  }
+  // Attach coin interrupt AFTER scale tare & WiFi setup so boot noise is ignored
+  noInterrupts(); coinPulseCount = 0; lastPulseTime = 0; interrupts();
+  attachInterrupt(digitalPinToInterrupt(COIN_PIN), coinInterrupt, FALLING);
 
-  lcdShow("PawFeeder Ready", "Bowl:0.0g Feed ");
-  Serial.println("Setup complete! Feeder is idle and ready for coins.");
-  Serial.println("[v3] Torque boost: stepDelayUs=3000, full-step, no ramp.");
+  lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+  Serial.println("[v5.3] Commands: 't'=Tare, 'c'=Calibrate(200g), 'w'=Raw Weight, 'm'=Forward Test, 'v'=Reverse Test, 'u'=Unjam Shake, 'f 50'=Feed 50g, 'r'=Reset");
 }
 
 // ============================================================
@@ -362,112 +332,107 @@ void setup() {
 void loop() {
   unsigned long now = millis();
 
-  // ── Serial commands ───────────────────────────────────────
   if (Serial.available()) {
-    String cmd = Serial.readStringUntil('\n');
-    cmd.trim();
+    String cmd = Serial.readStringUntil('\n'); cmd.trim();
     if (cmd == "t") {
       tareScale();
-      Serial.println(">> [Scale] Re-zeroed to 0.0 g");
       lcdShow("Scale Tared!", "0.0g");
       delay(1000);
-      lcdShow("PawFeeder Ready", "Bowl:0g Feed ");
-    } else if (cmd.charAt(0) == 'c') {
-      float known = cmd.substring(1).toFloat();
-      if (known > 0) {
-        long sum = 0;
-        for (int i = 0; i < 20; i++) {
-          scale.wait_ready(200);
-          sum += scale.read();
-          delay(20);
-        }
-        long raw = sum / 20;
-        calibrationFactor = (float)(raw - tareBaseline) / known;
-        Serial.printf(">> Calibrated! calibrationFactor = %.2f\n", calibrationFactor);
-        char calBuf[16]; snprintf(calBuf, sizeof(calBuf), "Cal: %.1f", calibrationFactor);
-        lcdShow("Calibrated!", calBuf);
-        delay(1500);
-        lcdShow("PawFeeder Ready", "Bowl:0g Feed ");
-      } else {
-        Serial.println(">> Usage: c250");
+      lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+    }
+    else if (cmd.startsWith("c")) {
+      float refGrams = 200.0f;
+      if (cmd.length() > 1) {
+        float parsed = cmd.substring(1).toFloat();
+        if (parsed > 1.0f) refGrams = parsed;
       }
-    } else if (cmd == "b") {
-      Serial.printf(">> Balance: P%d  (isTier=%d)\n", balancePhp, isTier(balancePhp));
-    } else if (cmd == "r") {
-      Serial.printf(">> Resetting balance P%d -> 0\n", balancePhp);
+      calibrateScaleInteractive(refGrams);
+    }
+    else if (cmd == "w") {
+      long med = 0;
+      if (readScaleMedianRaw(5, med, 300)) {
+        float g = (float)(med - tareBaseline) / calibrationFactor;
+        Serial.printf(">> Raw Median: %ld | Tare: %ld | Diff: %ld | Weight: %.2fg (cal=%.2f)\n",
+                      med, tareBaseline, med - tareBaseline, g, calibrationFactor);
+      } else {
+        Serial.println(">> Scale not ready! Check D25/D26 wiring.");
+      }
+    }
+    else if (cmd == "b") {
+      Serial.printf(">> Balance: P%d\n", balancePhp);
+    }
+    else if (cmd == "r") {
       balancePhp = 0;
       fbSet("/feeder/unit001/status/balance_php", "0");
-      lcdShow("PawFeeder Ready", "Bowl:0g Feed ");
-    } else if (cmd == "m") {
-      // Manual motor test: type 'm' + Enter to spin motor 2 seconds
-      Serial.println(">> [Motor Test] Spinning 2s at current settings...");
-      unsigned long mStart = millis();
-      int mi = 0;
-      while (millis() - mStart < 2000) {
-        energizeCoil(mi);
-        delayMicroseconds(stepDelayUs);
-        mi = (mi + 1) % 4;
+      lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+      Serial.println(">> Balance Reset");
+    }
+    else if (cmd == "m") {
+      Serial.println(">> Motor Test (2s Forward)...");
+      runMotorTimed(DIR_FORWARD, 2000, stepDelayUs, false);
+      Serial.println(">> Motor Test Done.");
+    }
+    else if (cmd == "v") {
+      Serial.println(">> Motor Test (2s Reverse)...");
+      runMotorTimed(DIR_REVERSE, 2000, stepDelayUs, false);
+      digitalWrite(DIR_PIN, DIR_FORWARD);
+      Serial.println(">> Reverse Test Done.");
+    }
+    else if (cmd == "u") {
+      Serial.println(">> Manual Unjam Shake...");
+      unjamAuger();
+      lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+    }
+    else if (cmd.startsWith("f")) {
+      int g = 50;
+      if (cmd.length() > 1) {
+        int parsed = cmd.substring(1).toInt();
+        if (parsed > 0) g = parsed;
       }
-      stepperOff();
-      Serial.println(">> [Motor Test] Done.");
+      Serial.printf(">> Manual Serial Dispense: %dg\n", g);
+      triggerDispense(g, "serial");
     }
   }
 
-  // ── Coin processing ───────────────────────────────────────
-  static unsigned long lastCoinSnap   = 0;
-  static unsigned long balanceStart   = 0;
+  static unsigned long lastCoinSnap = 0;
+  static unsigned long balanceStart = 0;
 
   if (!dispensing && (coinPulseCount > 0 || balancePhp > 0)) {
     long gapMs = (long)(now - lastPulseTime);
 
-    // ── One coin burst finished ────────────────────────────
-    if (coinPulseCount > 0 && gapMs >= 900 && (now - lastCoinSnap) >= 900) {
+    // Process coin burst after 1.5 seconds of silence
+    if (coinPulseCount > 0 && gapMs >= 1500 && (now - lastCoinSnap) >= 1500) {
       lastCoinSnap = now;
-
       int rawPulses = 0;
-      noInterrupts();
-      rawPulses      = coinPulseCount;
-      coinPulseCount = 0;
-      interrupts();
+      noInterrupts(); rawPulses = coinPulseCount; coinPulseCount = 0; interrupts();
 
-      int coinPhp = parseCoinBurst(rawPulses);
+      Serial.printf(">> Read: %d pulses\n", rawPulses);
 
-      if (coinPhp <= 0) {
-        Serial.printf("[Coin Slot] %d pulses -> P0 — ignored\n", rawPulses);
-        lcdShow("Unknown coin", "Not accepted");
-        delay(800);
-        showBalanceLcd();
-      } else {
-        balancePhp        += coinPhp;
-        totalCollectedPhp += coinPhp;
+      if (rawPulses >= 3) {
+        int coinPhp = parseCoinBurst(rawPulses);
+
+        if (coinPhp <= 0) {
+          lcdShow("Unknown coin", "Not accepted");
+          delay(800);
+          showBalanceLcd();
+          return;
+        }
+
+        balancePhp += coinPhp; totalCollectedPhp += coinPhp;
         prefs.putInt("total_php", totalCollectedPhp);
         fbSet("/feeder/unit001/status/total_collected_php", String(totalCollectedPhp));
-        fbSet("/feeder/unit001/status/balance_php",         String(balancePhp));
-
-        Serial.printf("[Coin Slot] %d pulses -> P%d | Balance: P%d\n",
-                      rawPulses, coinPhp, balancePhp);
-
+        fbSet("/feeder/unit001/status/balance_php", String(balancePhp));
         balanceStart = now;
 
+        Serial.printf(">> Credited: P%d | Balance: P%d\n", coinPhp, balancePhp);
+
         if (isTier(balancePhp)) {
-          int foodGrams = tierToGrams(balancePhp);
-          int phpValue  = balancePhp;
-          balancePhp    = 0;
+          int foodGrams = tierToGrams(balancePhp); int phpValue = balancePhp; balancePhp = 0;
           fbSet("/feeder/unit001/status/balance_php", "0");
-
-          Serial.println("\n==================================================");
-          Serial.printf("[COIN TRANSACTION] P%d PHP -> Dispensing %dg\n", phpValue, foodGrams);
-          Serial.println("==================================================");
-
-          char coinBuf[16]; snprintf(coinBuf, sizeof(coinBuf), "Coin: P%d PHP", phpValue);
-          char foodBuf[16]; snprintf(foodBuf, sizeof(foodBuf), "Feed: %dg", foodGrams);
-          lcdShow(coinBuf, foodBuf);
-          delay(800);
-
-          triggerDispense(foodGrams, "coin_slot");
-
-          String coinEvent = "{\"php\":" + String(phpValue) +
-                             ",\"grams\":" + String(foodGrams) + "}";
+          char coinBuf[17]; snprintf(coinBuf, sizeof(coinBuf), "Coin: P%d PHP", phpValue);
+          char foodBuf[17]; snprintf(foodBuf, sizeof(foodBuf), "Feed: %dg", foodGrams);
+          lcdShow(coinBuf, foodBuf); delay(800); triggerDispense(foodGrams, "coin_slot");
+          String coinEvent = "{\"php\":" + String(phpValue) + ",\"grams\":" + String(foodGrams) + "}";
           fbSet("/feeder/unit001/event/last_coin", coinEvent);
         } else {
           showBalanceLcd();
@@ -475,338 +440,401 @@ void loop() {
       }
     }
 
-    // ── Debug print every 10 s while balance is non-tier ──
-    if (balancePhp > 0 && !isTier(balancePhp)) {
-      static unsigned long lastDebug = 0;
-      if (now - lastDebug > 10000) {
-        lastDebug = now;
-        unsigned long elapsed = now - balanceStart;
-        Serial.printf("[Balance Timer] Balance=P%d  elapsed=%lus / %lus\n",
-                      balancePhp, elapsed / 1000, BALANCE_TIMEOUT_MS / 1000);
-      }
-    }
-
-    // ── 2-minute timeout on a non-tier balance ────────────
     if (balancePhp > 0 && !isTier(balancePhp) && (now - balanceStart) >= BALANCE_TIMEOUT_MS) {
-      int lost   = balancePhp;
-      balancePhp = 0;
+      int lost = balancePhp; balancePhp = 0;
       fbSet("/feeder/unit001/status/balance_php", "0");
-
-      Serial.printf("[BALANCE TIMEOUT] P%d unclaimed — reset to 0\n", lost);
-
-      String unclaimed = "{\"php\":" + String(lost) +
-                         ",\"at\":"   + String((int)(now / 1000)) + "}";
-      fbSet("/feeder/unit001/event/unclaimed", unclaimed);
-
-      lcdShow("Balance expired", "P? refund");
-      delay(1500);
-      lcdShow("PawFeeder Ready", "Bowl:0g Feed ");
+      fbSet("/feeder/unit001/event/unclaimed", "{\"php\":" + String(lost) + ",\"at\":" + String((int)(now / 1000)) + "}");
+      lcdShow("Balance expired", "P? refund"); delay(1500); lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
     }
   }
 
-  // ── Firebase command polling ──────────────────────────────
   if (now - lastPoll >= POLL_INTERVAL_MS) {
     lastPoll = now;
+    String cmdPayload = fbGet("/feeder/unit001/cmd");
+    cmdPayload.trim();
 
-    String resetWifi = fbGet("/feeder/unit001/cmd/reset_wifi");
-    resetWifi.trim();
-    if (resetWifi == "true") {
-      fbSet("/feeder/unit001/cmd/reset_wifi", "false");
-      Serial.println("[CMD] Remote WiFi reset");
-      lcdShow("WiFi Reset!", "Setup mode...");
-      delay(2000);
-      WiFiManager wm;
-      wm.resetSettings();
-      ESP.restart();
-    }
-
-    String tareCmd = fbGet("/feeder/unit001/cmd/tare");
-    tareCmd.trim();
-    if (tareCmd == "true") {
-      fbSet("/feeder/unit001/cmd/tare", "false");
-      if (scale.is_ready()) {
-        tareScale();
-        Serial.println("[CMD] Remote tare OK");
-        lcdShow("Scale Tared!", "0.0g");
-        delay(1200);
-        lcdShow("PawFeeder Ready", "Bowl:0g Feed ");
+    if (cmdPayload.length() > 2 && cmdPayload != "null") {
+      // 1. Check remote dispense command: "active":true
+      if (cmdPayload.indexOf("\"active\":true") >= 0 || cmdPayload.indexOf("\"active\": true") >= 0) {
+        int grams = 50;
+        int gIdx = cmdPayload.indexOf("\"grams\":");
+        if (gIdx >= 0) {
+          int parsed = cmdPayload.substring(gIdx + 8).toInt();
+          if (parsed > 0) grams = parsed;
+        }
+        fbSet("/feeder/unit001/cmd/dispense/active", "false");
+        if (!dispensing && ((lastDispenseTime == 0) || (millis() - lastDispenseTime >= COOLDOWN_MS))) {
+          triggerDispense(grams, "remote");
+        }
       }
-    }
 
-    String active = fbGet("/feeder/unit001/cmd/dispense/active");
-    active.trim();
-    if (active == "true") {
-      String gramsStr = fbGet("/feeder/unit001/cmd/dispense/grams");
-      int grams = gramsStr.toInt();
-      if (grams <= 0) grams = 50;
-      bool cooledDown = (lastDispenseTime == 0) ||
-                        (millis() - lastDispenseTime >= COOLDOWN_MS);
-      if (!dispensing && cooledDown) {
-        Serial.printf("[Firebase] Remote dispense: %dg\n", grams);
-        fbSet("/feeder/unit001/cmd/dispense/active", "false");
-        triggerDispense(grams, "remote");
-      } else {
-        fbSet("/feeder/unit001/cmd/dispense/active", "false");
-        Serial.println("[Firebase] Cooldown active — ignored");
+      // 2. Check bowl card quick tare: "tare":true
+      if (cmdPayload.indexOf("\"tare\":true") >= 0 || cmdPayload.indexOf("\"tare\": true") >= 0) {
+        fbSet("/feeder/unit001/cmd/tare", "false");
+        if (!dispensing) {
+          tareScale();
+          lcdShow("Remote Tare!", "Scale: 0.0g");
+          delay(900);
+          lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+        }
+      }
+
+      // 3. Check WiFi reset command: "reset_wifi":true
+      if (cmdPayload.indexOf("\"reset_wifi\":true") >= 0 || cmdPayload.indexOf("\"reset_wifi\": true") >= 0) {
+        fbSet("/feeder/unit001/cmd/reset_wifi", "false");
+        lcdShow("Resetting WiFi", "Restarting...");
+        WiFiManager wm;
+        wm.resetSettings();
+        delay(1000);
+        ESP.restart();
+      }
+
+      // 4. Check Admin Action commands from Web App Settings
+      int actIdx = cmdPayload.indexOf("\"admin_action\":\"");
+      if (actIdx >= 0 && !dispensing) {
+        int startQuote = actIdx + 16;
+        int endQuote = cmdPayload.indexOf("\"", startQuote);
+        if (endQuote > startQuote) {
+          String action = cmdPayload.substring(startQuote, endQuote);
+          fbSet("/feeder/unit001/cmd/admin_action", "\"\"");
+          Serial.printf("[Admin Web Cmd] Executing: %s\n", action.c_str());
+
+          if (action == "unjam") {
+            unjamAuger();
+            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+          }
+          else if (action == "reverse") {
+            lcdShow("Admin Control", "Reverse Spin 2s");
+            runMotorTimed(DIR_REVERSE, 2000, torqueStepDelayUs, false);
+            digitalWrite(DIR_PIN, DIR_FORWARD);
+            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+          }
+          else if (action == "forward") {
+            lcdShow("Admin Control", "Forward Spin 2s");
+            runMotorTimed(DIR_FORWARD, 2000, stepDelayUs, false);
+            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+          }
+          else if (action == "tare") {
+            tareScale();
+            lcdShow("Admin Tare!", "Scale: 0.0g");
+            delay(900);
+            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+          }
+          else if (action == "calibrate_200") {
+            calibrateScaleInteractive(200.0f);
+          }
+          else if (action == "reset_balance") {
+            balancePhp = 0;
+            fbSet("/feeder/unit001/status/balance_php", "0");
+            lcdShow("Admin Reset", "Balance: P0");
+            delay(900);
+            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+          }
+          else if (action == "refill_100") {
+            foodLevelPct = 100.0f;
+            fbSet("/feeder/unit001/status/food_level_pct", "100.0");
+            lcdShow("Hopper Refilled", "Food: 100%");
+            delay(1000);
+            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+          }
+        }
       }
     }
   }
 
-  // ── Live scale + LCD ──────────────────────────────────────
   static unsigned long lastScaleLcd = 0;
-  if (!dispensing && balancePhp == 0 && (now - lastScaleLcd >= 150)) {
+  if (!dispensing && balancePhp == 0 && (now - lastScaleLcd >= 200)) {
     lastScaleLcd = now;
     float w = readBowlWeight();
     if (coinPulseCount == 0) {
       char liveBowl[17];
-      snprintf(liveBowl, sizeof(liveBowl), "Bowl:%.1fg Feed ", w);
-      lcd.setCursor(0, 1);
-      lcd.print(liveBowl);
+      snprintf(liveBowl, sizeof(liveBowl), "Bowl:%.1fg Feed", w);
+      lcdShowLine2(liveBowl);
     }
   }
 
-  // ── Firebase status sync ──────────────────────────────────
   if (!dispensing && (WiFi.status() == WL_CONNECTED) && (now - lastHeartbeat >= 5000)) {
     lastHeartbeat = now;
     String statusJson = "{\"bowl_weight_g\":" + String(currentWeightGrams, 1) +
                         ",\"food_level_pct\":" + String(foodLevelPct, 1) +
-                        ",\"online\":true" +
-                        ",\"balance_php\":" + String(balancePhp) +
+                        ",\"online\":true,\"balance_php\":" + String(balancePhp) +
                         ",\"uptime_s\":" + String((int)(millis() / 1000)) +
                         ",\"rssi\":" + String(WiFi.RSSI()) + "}";
     fbPatch("/feeder/unit001/status", statusJson);
-    Serial.printf("[Scale Sync] Weight: %.1f g | Balance: P%d\n",
-                  currentWeightGrams, balancePhp);
   }
 }
 
-// ============================================================
-//  Show balance LCD
-// ============================================================
 void showBalanceLcd() {
-  if (balancePhp <= 0) {
-    lcdShow("PawFeeder Ready", "Bowl:0g Feed ");
-    return;
-  }
+  if (balancePhp <= 0) { lcdShow("PawFeeder Ready", "Bowl:0.0g Feed"); return; }
   int next = nextTierAbove(balancePhp);
-  char line1[17];
-  snprintf(line1, sizeof(line1), "Balance P%d", balancePhp);
+  char line1[17]; snprintf(line1, sizeof(line1), "Balance P%d", balancePhp);
   if (next > 0) {
-    char line2[17];
-    snprintf(line2, sizeof(line2), "Need P%d more", next - balancePhp);
+    char line2[17]; snprintf(line2, sizeof(line2), "Need P%d more", next - balancePhp);
     lcdShow(line1, line2);
   } else {
     lcdShow(line1, "Insert more...");
   }
 }
 
-// ============================================================
-//  Stepper helpers
-// ============================================================
-void stepperOff() {
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, LOW);
-}
-
-// [v3 #3/#4] Energize the current full-step coil pair
-void energizeCoil(int stepIndex) {
-  digitalWrite(IN1, sequenceFull[stepIndex][0]);
-  digitalWrite(IN2, sequenceFull[stepIndex][1]);
-  digitalWrite(IN3, sequenceFull[stepIndex][2]);
-  digitalWrite(IN4, sequenceFull[stepIndex][3]);
-}
-
-// ============================================================
-//  Weight helpers
-// ============================================================
+// Non-blocking 3-sample median + EMA smoothing for idle display
 float readBowlWeight() {
   if (scale.is_ready()) {
-    long raw = scale.read();
-    long net = raw - tareBaseline;
-    float w = (float)net / calibrationFactor;
-    if (fabs(w) < 0.5) w = 0.0;
-    currentWeightGrams = w;
+    long raw = readScaleRawSafe();
+    lastScaleReadyTime = millis();
+    if (raw != 0 && raw > -8388600L && raw < 8388800L) {
+      rawRing[rawRingIdx] = raw;
+      rawRingIdx = (rawRingIdx + 1) % 3;
+      if (rawRingIdx == 0) rawRingFilled = true;
+
+      long med = raw;
+      if (rawRingFilled) {
+        long sorted[3] = { rawRing[0], rawRing[1], rawRing[2] };
+        sortLongs(sorted, 3);
+        med = sorted[1];
+      }
+
+      float w = (float)(med - tareBaseline) / calibrationFactor;
+      // Reject absurd single-frame spikes (> 2000g or < -200g)
+      if (w > -200.0f && w < 2000.0f) {
+        if (fabs(w) < 0.8f) w = 0.0f;
+        currentWeightGrams = (w == 0.0f) ? 0.0f : (0.6f * w + 0.4f * currentWeightGrams);
+        if (fabs(currentWeightGrams) < 0.8f) currentWeightGrams = 0.0f;
+      }
+    }
+  } else if (millis() - lastScaleReadyTime > 1500) {
+    // Auto-wake HX711 if SCK noise put it into sleep mode
+    scale.power_down();
+    delayMicroseconds(100);
+    scale.power_up();
+    lastScaleReadyTime = millis();
   }
   return currentWeightGrams;
 }
 
+// High-reliability settled median read used between motor chunks
 static bool readCleanWeight(float &wOut) {
-  stepperOff();
   delay(SETTLE_MS);
-  if (scale.is_ready()) scale.read();
+  if (scale.is_ready()) readScaleRawSafe(); // discard first transitional reading after motor stops
 
-  for (int attempt = 0; attempt < 2; attempt++) {
-    if (scale.wait_ready_timeout(600)) {
-      long raw = scale.read();
-      float w  = (float)(raw - tareBaseline) / calibrationFactor;
-      if (fabs(w) < 0.5f) w = 0.0f;
-      wOut = w;
-      return true;
-    }
-    Serial.println("  [Scale] HX711 stuck - power cycling");
-    scale.power_down();
-    delay(10);
-    scale.power_up();
+  long med = 0;
+  if (readScaleMedianRaw(3, med, 450)) {
+    float w = (float)(med - tareBaseline) / calibrationFactor;
+    if (fabs(w) < 0.8f) w = 0.0f;
+    wOut = w;
+    currentWeightGrams = w;
+    return true;
   }
   return false;
 }
 
-// ============================================================
-//  Dispense wrapper
-// ============================================================
-void triggerDispense(int grams, const char* source) {
-  dispensing = true;
-  lastDispenseTime = millis();
-  digitalWrite(LED_PIN, HIGH);
+void calibrateScaleInteractive(float knownGrams) {
+  Serial.printf("\n[Calibrate] Measuring %.1fg reference weight (keep scale steady)...\n", knownGrams);
+  lcdShow("Calibrating...", "Keep steady!");
+  long med = 0;
+  if (!readScaleMedianRaw(11, med, 500)) {
+    Serial.println("[Calibrate] ERROR: HX711 not ready.");
+    lcdShow("Calib Failed", "Scale not ready");
+    delay(1500);
+    lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+    return;
+  }
+  long diff = med - tareBaseline;
+  if (abs(diff) < 100) {
+    Serial.printf("[Calibrate] ERROR: Raw diff (%ld) too small! Tare first ('t') with empty bowl, then place %.0fg and type 'c'.\n", diff, knownGrams);
+    lcdShow("Calib Error", "Place weight!");
+    delay(1500);
+    lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+    return;
+  }
+  calibrationFactor = (float)diff / knownGrams;
+  prefs.putFloat("cal_factor", calibrationFactor);
+  currentWeightGrams = knownGrams;
 
+  Serial.printf("[Calibrate] SUCCESS! Raw=%ld, Tare=%ld, Diff=%ld -> New calibrationFactor = %.2f (Saved to NVS)\n",
+                med, tareBaseline, diff, calibrationFactor);
+  char buf[17];
+  snprintf(buf, sizeof(buf), "Cal: %.2f", calibrationFactor);
+  lcdShow("Calib Saved!", buf);
+  delay(1800);
+  lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+}
+
+// ============================================================
+//  Stepper Motor + Anti-Clog Routines
+// ============================================================
+void motorPulse(int delayUs) {
+  digitalWrite(PUL_PIN, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(PUL_PIN, LOW);
+  delayMicroseconds(delayUs);
+}
+
+// Runs the stepper in `dir` for `durationMs` with a soft-start torque ramp
+// Returns true if user pressed 'x' in Serial to abort
+bool runMotorTimed(uint8_t dir, unsigned long durationMs, int targetDelayUs, bool allowSerialStop) {
+  digitalWrite(DIR_PIN, dir);
+  delayMicroseconds(20); // TB6600 DIR setup time before first PUL edge
+
+  unsigned long start = millis();
+  int startDelayUs = targetDelayUs + 1200; // Soft-start slower for maximum breakaway torque
+
+  while (millis() - start < durationMs) {
+    if (allowSerialStop && Serial.available()) {
+      char c = Serial.read();
+      if (c == 'x' || c == 'X') return true;
+    }
+    unsigned long elapsed = millis() - start;
+    // Ramp up over the first 45ms of movement
+    int currentDelay = (elapsed < 45)
+                       ? (startDelayUs - (int)((long)(startDelayUs - targetDelayUs) * elapsed / 45))
+                       : targetDelayUs;
+    motorPulse(currentDelay);
+  }
+  return false;
+}
+
+// Multi-stage unjamming routine when kibble bridges or wedges in the auger
+void unjamAuger() {
+  Serial.println("[Anti-Clog] Jam detected! Running Reverse + Shake unjam sequence...");
+  lcdShow("Unjamming Food", "Backing up...");
+
+  // 1. Back up slowly (high torque) for 450ms to pull wedged kibble out of the throat
+  runMotorTimed(DIR_REVERSE, 450, torqueStepDelayUs, false);
+  delay(60);
+
+  // 2. Rapid back-and-forth agitation ("shake") to break kibble bridge in hopper
+  lcdShow("Unjamming Food", "Shaking auger...");
+  for (int i = 0; i < 4; i++) {
+    runMotorTimed(DIR_FORWARD, 95, torqueStepDelayUs, false);
+    delay(25);
+    runMotorTimed(DIR_REVERSE, 75, torqueStepDelayUs, false);
+    delay(25);
+  }
+
+  // 3. High-torque slow forward push (350ms) to clear the loosened kibble
+  runMotorTimed(DIR_FORWARD, 350, torqueStepDelayUs, false);
+  digitalWrite(DIR_PIN, DIR_FORWARD);
+  delay(80);
+}
+
+void triggerDispense(int grams, const char* source) {
+  dispensing = true; lastDispenseTime = millis(); digitalWrite(LED_PIN, HIGH);
   detachInterrupt(digitalPinToInterrupt(COIN_PIN));
 
   float weightBefore = currentWeightGrams;
-  if (scale.wait_ready_timeout(300)) {
-    long raw = scale.read();
-    long net = raw - tareBaseline;
-    float w  = (float)net / calibrationFactor;
-    if (fabs(w) < 0.5) w = 0.0;
+  long medBefore = 0;
+  if (readScaleMedianRaw(3, medBefore, 350)) {
+    float w = (float)(medBefore - tareBaseline) / calibrationFactor;
+    if (fabs(w) < 0.8f) w = 0.0f;
     weightBefore = w;
     currentWeightGrams = w;
   }
 
-  char buf[16]; snprintf(buf, sizeof(buf), "Target: %dg", grams);
-  lcdShow(strcmp(source, "remote")    == 0 ? "Remote Feed!" :
-          strcmp(source, "coin_slot") == 0 ? "Coin Feed!"   : "Dispensing...", buf);
-  Serial.printf("\n[Dispense] Target: %dg from %s (Bowl Before: %.1fg)\n",
-                grams, source, weightBefore);
+  char buf[17]; snprintf(buf, sizeof(buf), "Target: %dg", grams);
+  lcdShow(strcmp(source, "remote") == 0 ? "Remote Feed!" : "Coin Feed!", buf);
 
   dispenseUntilWeight((float)grams, weightBefore);
 
-  stepperOff();
-
-  delay(1000);
-  float weightAfter    = readBowlWeight();
+  delay(800);
+  float weightAfter = weightBefore;
+  readCleanWeight(weightAfter);
   float actualDispensed = weightAfter - weightBefore;
-  if (actualDispensed < 0.0) actualDispensed = 0.0;
+  if (actualDispensed < 0.0f) actualDispensed = 0.0f;
 
   foodLevelPct -= (actualDispensed * 0.5f);
-  if (foodLevelPct < 0) foodLevelPct = 0;
+  if (foodLevelPct < 0.0f) foodLevelPct = 0.0f;
 
   digitalWrite(LED_PIN, LOW);
-
   fbSet("/feeder/unit001/status/food_level_pct", String(foodLevelPct, 1));
   fbSet("/feeder/unit001/status/bowl_weight_g",  String(weightAfter, 1));
-  fbSet("/feeder/unit001/status/cooldown_until",
-        String((int)((millis() + COOLDOWN_MS) / 1000)));
+  fbSet("/feeder/unit001/event/last_dispense",
+        "{\"target_g\":" + String(grams) +
+        ",\"actual_g\":" + String(actualDispensed, 1) +
+        ",\"bowl_g\":" + String(weightAfter, 1) +
+        ",\"source\":\"" + String(source) + "\"}");
 
-  String event = "{\"target_g\":" + String(grams) +
-                 ",\"actual_g\":" + String(actualDispensed, 1) +
-                 ",\"bowl_g\":"   + String(weightAfter, 1) +
-                 ",\"source\":\""  + String(source) + "\"}";
-  fbSet("/feeder/unit001/event/last_dispense", event);
-
-  Serial.printf("[Dispense] Complete! Added: %.1fg | Total Bowl: %.1fg\n\n",
-                actualDispensed, weightAfter);
-  char doneBuf[16]; snprintf(doneBuf, sizeof(doneBuf), "Added: %.0fg", actualDispensed);
-  lcdShow("Done! Yum! :)", doneBuf);
-  delay(1500);
-
-  char idleBuf[17]; snprintf(idleBuf, sizeof(idleBuf), "Bowl:%.0fg Feed ", weightAfter);
+  char doneBuf[17]; snprintf(doneBuf, sizeof(doneBuf), "Added: %.0fg", actualDispensed);
+  lcdShow("Done! Yum! :)", doneBuf); delay(1500);
+  char idleBuf[17]; snprintf(idleBuf, sizeof(idleBuf), "Bowl:%.1fg Feed", weightAfter);
   lcdShow("PawFeeder Ready", idleBuf);
 
-  noInterrupts();
-  coinPulseCount = 0;
-  lastPulseTime  = 0;
-  lastCoinInterruptTime = millis();
-  interrupts();
+  noInterrupts(); coinPulseCount = 0; lastPulseTime = 0; interrupts();
   attachInterrupt(digitalPinToInterrupt(COIN_PIN), coinInterrupt, FALLING);
-
   dispensing = false;
-  Serial.println("[Feeder Ready] Waiting for next coin...\n");
 }
 
-// ============================================================
-//  Closed-loop dispense  (v3: full-step, no ramp, re-energize)
-// ============================================================
 void dispenseUntilWeight(float targetGrams, float startWeight) {
-  const unsigned long maxDispenseTimeMs = (unsigned long)(targetGrams * 300.0f) + 15000UL;
+  const unsigned long maxDispenseTimeMs = (unsigned long)(targetGrams * 350.0f) + 20000UL;
   unsigned long startTime = millis();
+  float dispensed = 0.0f;
+  float lastProgressWeight = 0.0f;
+  int lastShown = -1;
+  int failedReads = 0;
+  int targetHitCount = 0;
+  int stalledChunks = 0;
+  int chunkCounter = 0;
+  bool manualStop = false;
 
-  int   stepIndex  = 0;      // 0..3 (full-step)
-  float dispensed  = 0.0f;
-  int   lastShown  = -1;
-  int   failedReads = 0;
-  bool  manualStop = false;
-
-  Serial.printf("[Dispense Start] Target: %.0fg | Start bowl: %.1fg | Timeout: %lus\n",
-                targetGrams, startWeight, maxDispenseTimeMs / 1000);
-  Serial.printf("  [v3] stepDelayUs=%d full-step no-ramp\n", stepDelayUs);
-  Serial.println("  Tip: type 'x' to emergency stop.");
-
-  char initBuf[17];
-  snprintf(initBuf, sizeof(initBuf), "0g / %.0fg", targetGrams);
+  char initBuf[17]; snprintf(initBuf, sizeof(initBuf), "0g / %.0fg", targetGrams);
   lcdShow("Dispensing...", initBuf);
 
   while (true) {
-    // ── 1. RUN motor for RUN_CHUNK_MS (v3: no ramp, full-step) ──
-    unsigned long chunkStart = millis();
-    while (millis() - chunkStart < RUN_CHUNK_MS) {
-      if (Serial.available()) {
-        char c = Serial.read();
-        if (c == 'x' || c == 'X') { manualStop = true; break; }
-      }
-      energizeCoil(stepIndex);
-      delayMicroseconds(stepDelayUs);
-      stepIndex = (stepIndex + 1) % 4;   // 4-step full-step cycle
-    }
-    if (manualStop) { Serial.println("  [STOP] Motor halted manually!"); break; }
+    chunkCounter++;
 
-    // ── 2. STOP + clean scale sample ──────────────────────
+    // 1. Preventive "Peck" Dither: every 3rd chunk, step backward 40ms before pushing forward
+    //    This relieves pressure on kibble before it can wedge against the tube wall.
+    if (chunkCounter % 3 == 0) {
+      if (runMotorTimed(DIR_REVERSE, MICRO_BACK_MS, torqueStepDelayUs, true)) { manualStop = true; break; }
+      delay(15);
+    }
+
+    // 2. Forward dispense chunk with soft-start torque ramp
+    if (runMotorTimed(DIR_FORWARD, RUN_CHUNK_MS, stepDelayUs, true)) {
+      manualStop = true;
+      break;
+    }
+
     float w;
     if (readCleanWeight(w)) {
       failedReads = 0;
       dispensed = w - startWeight;
       if (dispensed < 0.0f) dispensed = 0.0f;
 
-      Serial.printf("  [Scale] bowl=%.1fg dispensed=%.1fg / %.0fg\n",
-                    w, dispensed, targetGrams);
-
       int shown = (int)(dispensed + 0.5f);
       if (shown != lastShown) {
         lastShown = shown;
         char liveBuf[17];
         snprintf(liveBuf, sizeof(liveBuf), "%dg / %.0fg", shown, targetGrams);
-        lcd.setCursor(0, 1);
-        lcd.print(liveBuf);
-        for (int k = strlen(liveBuf); k < 16; k++) lcd.print(" ");
+        lcdShow("Dispensing...", liveBuf);
       }
 
+      // 3. Check if target weight is reached (2 consecutive clean reads)
       if (dispensed >= targetGrams - EARLY_STOP_G) {
-        Serial.printf("  [DONE] Target reached! Added: %.1fg\n", dispensed);
-        break;
+        targetHitCount++;
+        if (targetHitCount >= 2) break;
+      } else {
+        targetHitCount = 0;
+      }
+
+      // 4. Auto Clog / Stall Detection: check if weight is increasing
+      if (dispensed - lastProgressWeight >= MIN_PROGRESS_G) {
+        lastProgressWeight = dispensed;
+        stalledChunks = 0;
+      } else {
+        stalledChunks++;
+        if (stalledChunks >= STALL_CHUNKS_LIMIT) {
+          stalledChunks = 0;
+          unjamAuger();
+          char resumeBuf[17];
+          snprintf(resumeBuf, sizeof(resumeBuf), "%dg / %.0fg", shown, targetGrams);
+          lcdShow("Dispensing...", resumeBuf);
+        }
       }
     } else {
       failedReads++;
-      Serial.printf("  [Scale] WARN: no sample (%d/5)\n", failedReads);
-      if (failedReads >= 5) {
-        Serial.println("  [ERROR] Scale not responding — stopping.");
-        lcdShow("Scale Error!", "Check wiring");
-        delay(1500);
-        break;
-      }
+      if (failedReads >= 5) break;
     }
 
-    // ── [v3 #4] Re-energize coils so motor stays warm between chunks ──
-    energizeCoil(stepIndex);
-
-    // ── 3. Safety timeout ─────────────────────────────────
-    if (millis() - startTime > maxDispenseTimeMs) {
-      Serial.println("  [TIMEOUT] Safety stop.");
-      lcdShow("Hopper Empty?", "Check Food");
-      delay(1500);
-      break;
-    }
+    if (millis() - startTime > maxDispenseTimeMs) break;
   }
-
-  stepperOff();
-  Serial.println("  NEMA motor stopped (cold idle).");
 }
