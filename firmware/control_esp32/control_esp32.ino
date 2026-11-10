@@ -1,5 +1,5 @@
 // ============================================================
-//  PawFeeder — Control ESP32 Firmware (FINAL v5.3 — Anti-Clog Auger + Stabilized Scale)
+//  PawFeeder — Control ESP32 Firmware (FINAL v5.3 — Anti-Clog + Web Admin Controls)
 //  NEMA Stepper (TB6600) + Allan 1239 ProMax Coin Slot + HX711 Scale
 //  Board: ESP32 Dev Module
 // ============================================================
@@ -154,7 +154,7 @@ int torqueStepDelayUs = 2800;  // Slower step rate = HIGHER stepper torque for u
 unsigned long lastDispenseTime = 0;
 
 // ── Polling / heartbeat ────────────────────────────────────
-#define POLL_INTERVAL_MS 3500UL
+#define POLL_INTERVAL_MS 2000UL
 unsigned long lastPoll      = 0;
 unsigned long lastHeartbeat = 0;
 
@@ -267,7 +267,7 @@ void calibrateScaleInteractive(float knownGrams);
 // ============================================================
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n== PawFeeder Control ESP32 v5.3 (Anti-Clog Auger + Stabilized Scale) ==");
+  Serial.println("\n== PawFeeder Control ESP32 v5.3 (Anti-Clog + Web Admin Controls) ==");
 
   prefs.begin("pawfeeder", false);
   totalCollectedPhp = prefs.getInt("total_php", 0);
@@ -448,94 +448,77 @@ void loop() {
     }
   }
 
+  // ── Poll Firebase Commands (Dispense + Web Admin Controls) ─
   if (now - lastPoll >= POLL_INTERVAL_MS) {
     lastPoll = now;
-    String cmdPayload = fbGet("/feeder/unit001/cmd");
-    cmdPayload.trim();
+    String active = fbGet("/feeder/unit001/cmd/dispense/active");
+    active.trim();
 
-    if (cmdPayload.length() > 2 && cmdPayload != "null") {
-      // 1. Check remote dispense command: "active":true
-      if (cmdPayload.indexOf("\"active\":true") >= 0 || cmdPayload.indexOf("\"active\": true") >= 0) {
-        int grams = 50;
-        int gIdx = cmdPayload.indexOf("\"grams\":");
-        if (gIdx >= 0) {
-          int parsed = cmdPayload.substring(gIdx + 8).toInt();
-          if (parsed > 0) grams = parsed;
-        }
-        fbSet("/feeder/unit001/cmd/dispense/active", "false");
-        if (!dispensing && ((lastDispenseTime == 0) || (millis() - lastDispenseTime >= COOLDOWN_MS))) {
-          triggerDispense(grams, "remote");
-        }
-      }
+    if (active == "true") {
+      String gramsStr = fbGet("/feeder/unit001/cmd/dispense/grams");
+      gramsStr.trim();
+      int grams = gramsStr.toInt();
+      fbSet("/feeder/unit001/cmd/dispense/active", "false");
 
-      // 2. Check bowl card quick tare: "tare":true
-      if (cmdPayload.indexOf("\"tare\":true") >= 0 || cmdPayload.indexOf("\"tare\": true") >= 0) {
-        fbSet("/feeder/unit001/cmd/tare", "false");
-        if (!dispensing) {
+      if (!dispensing) {
+        if (grams == 901) {
+          Serial.println("[Admin Web Cmd] 901 -> Unjam Auger Shake");
+          unjamAuger();
+          lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+        }
+        else if (grams == 902) {
+          Serial.println("[Admin Web Cmd] 902 -> Reverse Spin 2s");
+          lcdShow("Admin Control", "Reverse Spin 2s");
+          runMotorTimed(DIR_REVERSE, 2000, torqueStepDelayUs, false);
+          digitalWrite(DIR_PIN, DIR_FORWARD);
+          lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+        }
+        else if (grams == 903) {
+          Serial.println("[Admin Web Cmd] 903 -> Forward Spin 2s");
+          lcdShow("Admin Control", "Forward Spin 2s");
+          runMotorTimed(DIR_FORWARD, 2000, stepDelayUs, false);
+          lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+        }
+        else if (grams == 904) {
+          Serial.println("[Admin Web Cmd] 904 -> Tare Scale");
           tareScale();
-          lcdShow("Remote Tare!", "Scale: 0.0g");
+          lcdShow("Admin Tare!", "Scale: 0.0g");
           delay(900);
           lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
         }
-      }
-
-      // 3. Check WiFi reset command: "reset_wifi":true
-      if (cmdPayload.indexOf("\"reset_wifi\":true") >= 0 || cmdPayload.indexOf("\"reset_wifi\": true") >= 0) {
-        fbSet("/feeder/unit001/cmd/reset_wifi", "false");
-        lcdShow("Resetting WiFi", "Restarting...");
-        WiFiManager wm;
-        wm.resetSettings();
-        delay(1000);
-        ESP.restart();
-      }
-
-      // 4. Check Admin Action commands from Web App Settings
-      int actIdx = cmdPayload.indexOf("\"admin_action\":\"");
-      if (actIdx >= 0 && !dispensing) {
-        int startQuote = actIdx + 16;
-        int endQuote = cmdPayload.indexOf("\"", startQuote);
-        if (endQuote > startQuote) {
-          String action = cmdPayload.substring(startQuote, endQuote);
-          fbSet("/feeder/unit001/cmd/admin_action", "\"\"");
-          Serial.printf("[Admin Web Cmd] Executing: %s\n", action.c_str());
-
-          if (action == "unjam") {
-            unjamAuger();
-            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
-          }
-          else if (action == "reverse") {
-            lcdShow("Admin Control", "Reverse Spin 2s");
-            runMotorTimed(DIR_REVERSE, 2000, torqueStepDelayUs, false);
-            digitalWrite(DIR_PIN, DIR_FORWARD);
-            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
-          }
-          else if (action == "forward") {
-            lcdShow("Admin Control", "Forward Spin 2s");
-            runMotorTimed(DIR_FORWARD, 2000, stepDelayUs, false);
-            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
-          }
-          else if (action == "tare") {
-            tareScale();
-            lcdShow("Admin Tare!", "Scale: 0.0g");
-            delay(900);
-            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
-          }
-          else if (action == "calibrate_200") {
-            calibrateScaleInteractive(200.0f);
-          }
-          else if (action == "reset_balance") {
-            balancePhp = 0;
-            fbSet("/feeder/unit001/status/balance_php", "0");
-            lcdShow("Admin Reset", "Balance: P0");
-            delay(900);
-            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
-          }
-          else if (action == "refill_100") {
-            foodLevelPct = 100.0f;
-            fbSet("/feeder/unit001/status/food_level_pct", "100.0");
-            lcdShow("Hopper Refilled", "Food: 100%");
-            delay(1000);
-            lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+        else if (grams == 905) {
+          Serial.println("[Admin Web Cmd] 905 -> Calibrate 200g");
+          calibrateScaleInteractive(200.0f);
+        }
+        else if (grams == 906) {
+          Serial.println("[Admin Web Cmd] 906 -> Reset Coin Balance");
+          balancePhp = 0;
+          fbSet("/feeder/unit001/status/balance_php", "0");
+          lcdShow("Admin Reset", "Balance: P0");
+          delay(900);
+          lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+        }
+        else if (grams == 907) {
+          Serial.println("[Admin Web Cmd] 907 -> Hopper Refilled 100%");
+          foodLevelPct = 100.0f;
+          fbSet("/feeder/unit001/status/food_level_pct", "100.0");
+          lcdShow("Hopper Refilled", "Food: 100%");
+          delay(1000);
+          lcdShow("PawFeeder Ready", "Bowl:0.0g Feed");
+        }
+        else if (grams == 908) {
+          Serial.println("[Admin Web Cmd] 908 -> Reset WiFi");
+          lcdShow("Resetting WiFi", "Restarting...");
+          WiFiManager wm;
+          wm.resetSettings();
+          delay(1000);
+          ESP.restart();
+        }
+        else {
+          // Normal food dispense (50g, 150g, 250g, 350g, 450g)
+          if (grams <= 0) grams = 50;
+          if ((lastDispenseTime == 0) || (millis() - lastDispenseTime >= COOLDOWN_MS)) {
+            triggerDispense(grams, "remote");
           }
         }
       }

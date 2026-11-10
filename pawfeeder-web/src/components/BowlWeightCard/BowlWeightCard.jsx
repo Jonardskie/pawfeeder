@@ -16,7 +16,11 @@ export default function BowlWeightCard({ db, weight = 0, online = false }) {
     if (!db || taring) return
     setTaring(true)
     try {
-      await set(ref(db, 'feeder/unit001/cmd/tare'), true)
+      await set(ref(db, 'feeder/unit001/cmd/dispense'), {
+        active: true,
+        grams: 904,
+        source: 'web_admin',
+      })
       setTimeout(() => setTaring(false), 2000)
     } catch (e) {
       console.error('Tare failed:', e)

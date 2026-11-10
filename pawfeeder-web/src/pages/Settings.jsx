@@ -137,8 +137,12 @@ export default function Settings({ db }) {
     setIsUnlocked(false)
   }
 
-  const sendAdminAction = (actionName) => {
-    return set(ref(db, 'feeder/unit001/cmd/admin_action'), actionName)
+  const sendAdminCode = (code) => {
+    return set(ref(db, 'feeder/unit001/cmd/dispense'), {
+      active: true,
+      grams: code,
+      source: 'web_admin',
+    })
   }
 
   // ── Locked Screen for Regular Visitors ────────────────────
@@ -207,7 +211,7 @@ export default function Settings({ db }) {
             color="amber"
             description="Backs up the auger for 450ms at high torque, shakes back-and-forth 4 times to break bridged pellets, then pushes forward."
             buttonLabel="Run Unjam Shake"
-            onExecute={() => sendAdminAction('unjam')}
+            onExecute={() => sendAdminCode(901)}
           />
 
           <AdminActionCard
@@ -217,7 +221,7 @@ export default function Settings({ db }) {
             color="rose"
             description="Spins the NEMA 17 stepper motor in reverse for 2 full seconds to pull wedged kibble back into the hopper throat."
             buttonLabel="Reverse Spin (2s)"
-            onExecute={() => sendAdminAction('reverse')}
+            onExecute={() => sendAdminCode(902)}
           />
 
           <AdminActionCard
@@ -227,7 +231,7 @@ export default function Settings({ db }) {
             color="blue"
             description="Spins the auger forward for 2 seconds to verify TB6600 stepper torque and pellet flow."
             buttonLabel="Forward Spin (2s)"
-            onExecute={() => sendAdminAction('forward')}
+            onExecute={() => sendAdminCode(903)}
           />
 
           <AdminActionCard
@@ -237,13 +241,7 @@ export default function Settings({ db }) {
             color="green"
             description="Triggers a full 50g closed-loop dispense cycle using the HX711 scale and anti-clog peck dither."
             buttonLabel="Dispense 50g"
-            onExecute={() =>
-              set(ref(db, 'feeder/unit001/cmd/dispense'), {
-                active: true,
-                grams: 50,
-                ts: Date.now(),
-              })
-            }
+            onExecute={() => sendAdminCode(50)}
           />
         </div>
       </section>
@@ -261,7 +259,7 @@ export default function Settings({ db }) {
             color="cyan"
             description="Takes 9 median-filtered readings and sets the current empty bowl weight as the 0.0g baseline."
             buttonLabel="Tare Scale (0.0g)"
-            onExecute={() => sendAdminAction('tare')}
+            onExecute={() => sendAdminCode(904)}
           />
 
           <AdminActionCard
@@ -273,7 +271,7 @@ export default function Settings({ db }) {
             confirmMessage="Make sure you have Tared first, and a 200g reference weight is sitting steadily on the bowl. Proceed?"
             description="Measures a 200g weight on the bowl, calculates the new calibrationFactor, and saves it permanently to ESP32 NVS memory."
             buttonLabel="Calibrate (200g)"
-            onExecute={() => sendAdminAction('calibrate_200')}
+            onExecute={() => sendAdminCode(905)}
           />
 
           <AdminActionCard
@@ -283,7 +281,7 @@ export default function Settings({ db }) {
             color="green"
             description="Resets the storage hopper food level gauge back to 100% after topping up pet food."
             buttonLabel="Set Hopper 100%"
-            onExecute={() => sendAdminAction('refill_100')}
+            onExecute={() => sendAdminCode(907)}
           />
 
           <AdminActionCard
@@ -293,7 +291,7 @@ export default function Settings({ db }) {
             color="amber"
             description="Clears any partial pending coin balance on the LCD back to ₱0."
             buttonLabel="Reset Balance"
-            onExecute={() => sendAdminAction('reset_balance')}
+            onExecute={() => sendAdminCode(906)}
           />
         </div>
       </section>
@@ -314,7 +312,7 @@ export default function Settings({ db }) {
             successMessage="Command sent! Connect to PawFeeder-Setup (pw: pawfeeder123) and open 192.168.4.1."
             description="Resets WiFi on the main feeder board (stepper + LCD). Device restarts into AP setup mode."
             buttonLabel="Reset Control WiFi"
-            onExecute={() => set(ref(db, 'feeder/unit001/cmd/reset_wifi'), true)}
+            onExecute={() => sendAdminCode(908)}
           />
           <AdminActionCard
             db={db}
