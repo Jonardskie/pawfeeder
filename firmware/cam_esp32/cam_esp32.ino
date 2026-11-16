@@ -133,8 +133,8 @@
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
-      config.frame_size   = FRAMESIZE_XGA;  // 1024x768 sharp high-res (faster than 720p, crisper than SVGA)
-      config.jpeg_quality = 11;             // High crisp quality
+      config.frame_size   = FRAMESIZE_VGA;  // 640x480 fast-loading (~12-18KB/frame, 4x faster on slow internet)
+      config.jpeg_quality = 16;             // Optimized for slow WiFi & instant cloud load
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {
