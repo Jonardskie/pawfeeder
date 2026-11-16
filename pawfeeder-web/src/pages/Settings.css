@@ -290,3 +290,58 @@
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
+
+/* GCash Recipient Admin Card */
+.settings-gcash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.settings-gcash-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.settings-gcash-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.settings-gcash-input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-input, rgba(15, 23, 42, 0.6));
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.settings-gcash-input:focus {
+  border-color: var(--accent);
+}
+
+.settings-gcash-input--mono {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.06em;
+}
+
+.settings-gcash-qr-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-gcash-qr-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}

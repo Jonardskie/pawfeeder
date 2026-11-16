@@ -247,11 +247,17 @@ async function recognizeTextFromImage(file, onProgress) {
 /**
  * Scan and verify a GCash Receipt screenshot against:
  * 1. Authentic GCash Receipt keywords
- * 2. Recipient match (JONARD S. / 09535497843)
+ * 2. Dynamic Recipient match (targetAccount.number & targetAccount.maskedName)
  * 3. Expected Donation Amount (e.g. ₱10.00, ₱30.00, ₱50.00, ₱70.00, ₱90.00)
  * 4. 13-digit Reference Number extraction (4-3-6 grouped or 13 contiguous digits)
  */
-export async function scanGcashReceipt(file, expectedPhp, onProgress) {
+export async function scanGcashReceipt(file, expectedPhp, onProgress, targetAccount = GCASH_ACCOUNT) {
+  const account = {
+    maskedName: targetAccount?.maskedName || GCASH_ACCOUNT.maskedName,
+    number: String(targetAccount?.number || GCASH_ACCOUNT.number).replace(/\D/g, ''),
+  }
+  const tenDigits = account.number.startsWith('0') ? account.number.slice(1) : account.number
+
   const imageHash = await computeImageHash(file)
   onProgress?.(15)
   const preparedBlob = await preprocessImageForOcr(file)
@@ -288,15 +294,24 @@ export async function scanGcashReceipt(file, expectedPhp, onProgress) {
     upper.includes('INSTAPAY') ||
     upper.includes('EXPRESS')
 
-  // 2. Check Recipient (09535497843 / +63 953 549 7843 / JONARD S.)
+  // 2. Dynamic Recipient Match against configured Admin GCash Account
+  const nameTokens = account.maskedName
+    .toUpperCase()
+    .split(/[^A-Z0-9]+/)
+    .filter(t => t.length >= 3)
+
+  const prefix6 = tenDigits.slice(0, 6)
+  const suffix7 = tenDigits.slice(-7)
+  const spacedPrefix = `${tenDigits.slice(0, 3)} ${tenDigits.slice(3, 6)}`
+  const spacedSuffix = `${tenDigits.slice(3, 6)} ${tenDigits.slice(6)}`
+
   const recipientMatched =
-    digitsOnly.includes('9535497843') ||
-    digitsOnly.includes('953549') ||
-    digitsOnly.includes('5497843') ||
-    upper.includes('953 549') ||
-    upper.includes('549 7843') ||
-    upper.includes('JONARD') ||
-    /JO[\s*•.]*RD/.test(upper)
+    (tenDigits.length >= 7 && digitsOnly.includes(tenDigits)) ||
+    (prefix6.length === 6 && digitsOnly.includes(prefix6)) ||
+    (suffix7.length === 7 && digitsOnly.includes(suffix7)) ||
+    (spacedPrefix.length >= 6 && upper.includes(spacedPrefix)) ||
+    (spacedSuffix.length >= 6 && upper.includes(spacedSuffix)) ||
+    nameTokens.some(tok => upper.includes(tok))
 
   // 3. Check Amount (e.g. "30.00" for ₱30)
   const amountRegex = new RegExp(`(?<!\\d)${expectedPhp}[.,]\\s*00(?!\\d)`)
@@ -350,7 +365,7 @@ export async function scanGcashReceipt(file, expectedPhp, onProgress) {
   if (!extractedRef) {
     const thirteenMatches = combinedText.match(/(?<!\d)\d{13}(?!\d)/g) || []
     for (const m of thirteenMatches) {
-      if (!m.includes('9535497843')) {
+      if (!tenDigits || !m.includes(tenDigits)) {
         extractedRef = m
         break
       }

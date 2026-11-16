@@ -16,10 +16,16 @@ import './GCashModal.css'
 
 const STEP = { QR: 'qr', VERIFY: 'verify', DISPENSING: 'dispensing', SUCCESS: 'success' }
 
-const GCASH_NAME   = GCASH_ACCOUNT.maskedName
-const GCASH_NUMBER = GCASH_ACCOUNT.number
-
 export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
+  const [gcashAccount, setGcashAccount] = useState({
+    maskedName: GCASH_ACCOUNT.maskedName,
+    number: GCASH_ACCOUNT.number,
+    qrSrc: gcashQr,
+  })
+  const GCASH_NAME   = gcashAccount.maskedName
+  const GCASH_NUMBER = gcashAccount.number
+  const activeQrSrc  = gcashAccount.qrSrc || gcashQr
+
   const [step, setStep]           = useState(STEP.QR)
   const [donorName, setDonorName] = useState('')
   const [refCode, setRefCode]     = useState('')
@@ -54,6 +60,23 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // Subscribe to dynamic GCash recipient config from Firebase
+  useEffect(() => {
+    if (!db) return
+    const cfgRef = ref(db, `feeder/${unitId}/config/gcash`)
+    const unsub = onValue(cfgRef, (snap) => {
+      const val = snap.val()
+      if (val && (val.number || val.maskedName)) {
+        setGcashAccount({
+          maskedName: val.maskedName || GCASH_ACCOUNT.maskedName,
+          number: val.number || GCASH_ACCOUNT.number,
+          qrSrc: val.qrDataUrl || gcashQr,
+        })
+      }
+    })
+    return () => unsub()
+  }, [db, unitId])
 
   // Clean up object URL preview
   useEffect(() => {
@@ -161,7 +184,7 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
 
   function handleSaveQr() {
     const link = document.createElement('a')
-    link.href = gcashQr
+    link.href = activeQrSrc
     link.download = `PawFeeder_GCash_QR_P${tier.php}.jpg`
     document.body.appendChild(link)
     link.click()
@@ -187,7 +210,7 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
     setScanResult(null)
 
     try {
-      const result = await scanGcashReceipt(file, tier.php, (p) => setScanProgress(p))
+      const result = await scanGcashReceipt(file, tier.php, (p) => setScanProgress(p), gcashAccount)
       setScanResult(result)
 
       if (result.extractedRef) {
@@ -353,7 +376,7 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
               <div className="gcash-qr-grid">
                 {/* Left: QR Code with Save Option */}
                 <div className="gcash-qr-wrapper">
-                  <img src={gcashQr} alt="GCash QR Code" className="gcash-qr-img" />
+                  <img src={activeQrSrc} alt="GCash QR Code" className="gcash-qr-img" />
                   <button className="gcash-save-qr-btn" onClick={handleSaveQr}>
                     <Download size={12} />
                     Save QR

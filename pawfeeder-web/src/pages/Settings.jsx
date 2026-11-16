@@ -1,9 +1,11 @@
-import { useState } from 'react'
-import { ref, set } from 'firebase/database'
+import { useState, useEffect, useRef } from 'react'
+import { ref, set, onValue } from 'firebase/database'
 import {
   Wifi, WifiOff, Camera, Cpu, RotateCcw, CheckCircle, AlertTriangle,
-  Lock, Unlock, RefreshCw, RotateCw, Scale, Sliders, PackageCheck, Coins, Utensils
+  Lock, Unlock, RefreshCw, RotateCw, Scale, Sliders, PackageCheck, Coins, Utensils,
+  Smartphone, Upload, Save
 } from 'lucide-react'
+import { GCASH_ACCOUNT } from '../lib/receiptVerifier'
 import './Settings.css'
 
 const BTN = { IDLE: 'idle', CONFIRM: 'confirm', SENDING: 'sending', DONE: 'done', ERROR: 'error' }
@@ -113,6 +115,217 @@ function AdminActionCard({
   )
 }
 
+function compressQrToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const MAX_DIM = 450
+      const scale = Math.max(img.width, img.height) > MAX_DIM
+        ? MAX_DIM / Math.max(img.width, img.height)
+        : 1
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return reject(new Error('Canvas unavailable'))
+      ctx.drawImage(img, 0, 0, w, h)
+      resolve(canvas.toDataURL('image/jpeg', 0.85))
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Invalid image file'))
+    }
+    img.src = url
+  })
+}
+
+function GCashRecipientCard({ db }) {
+  const [maskedName, setMaskedName] = useState(GCASH_ACCOUNT.maskedName)
+  const [number, setNumber] = useState(GCASH_ACCOUNT.number)
+  const [qrDataUrl, setQrDataUrl] = useState('')
+  const [saveState, setSaveState] = useState(BTN.IDLE)
+  const [errMsg, setErrMsg] = useState('')
+  const qrInputRef = useRef(null)
+
+  useEffect(() => {
+    if (!db) return
+    const cfgRef = ref(db, 'feeder/unit001/config/gcash')
+    const unsub = onValue(cfgRef, (snap) => {
+      const val = snap.val()
+      if (val) {
+        if (val.maskedName) setMaskedName(val.maskedName)
+        if (val.number) setNumber(val.number)
+        setQrDataUrl(val.qrDataUrl || '')
+      }
+    })
+    return () => unsub()
+  }, [db])
+
+  const handleQrFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setErrMsg('')
+    try {
+      const compressed = await compressQrToDataUrl(file)
+      setQrDataUrl(compressed)
+    } catch (err) {
+      setErrMsg(err?.message || 'Could not load QR image.')
+    }
+  }
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setErrMsg('')
+    const cleanNum = number.replace(/\D/g, '')
+    const cleanName = maskedName.trim()
+    if (!cleanName || cleanName.length < 2) {
+      setErrMsg('Please enter the GCash account name.')
+      return
+    }
+    if (!/^09\d{9}$/.test(cleanNum)) {
+      setErrMsg('GCash number must be 11 digits starting with 09 (e.g. 09535497843).')
+      return
+    }
+    if (!db) {
+      setSaveState(BTN.ERROR)
+      return
+    }
+
+    setSaveState(BTN.SENDING)
+    try {
+      await set(ref(db, 'feeder/unit001/config/gcash'), {
+        maskedName: cleanName,
+        number: cleanNum,
+        qrDataUrl: qrDataUrl || '',
+        updatedAt: Date.now(),
+      })
+      setSaveState(BTN.DONE)
+      setTimeout(() => setSaveState(BTN.IDLE), 3500)
+    } catch (err) {
+      console.error(err)
+      setErrMsg('Failed to save to Firebase.')
+      setSaveState(BTN.ERROR)
+      setTimeout(() => setSaveState(BTN.IDLE), 3000)
+    }
+  }
+
+  return (
+    <form className="settings-card settings-card--blue" onSubmit={handleSave}>
+      <div className="settings-card-header">
+        <div className="settings-card-icon settings-card-icon--cyan">
+          <Smartphone size={20} />
+        </div>
+        <div>
+          <div className="settings-card-title">Active GCash Recipient Account</div>
+          <div className="settings-card-desc">
+            Changes the GCash name, mobile number, QR code, and OCR recipient verification live for all donors.
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-gcash-grid">
+        <div className="settings-gcash-field">
+          <label className="settings-gcash-label" htmlFor="admin-gcash-name">
+            GCash Account Name (as shown on receipt)
+          </label>
+          <input
+            id="admin-gcash-name"
+            type="text"
+            className="settings-gcash-input"
+            placeholder="e.g. JONARD S."
+            value={maskedName}
+            onChange={(e) => setMaskedName(e.target.value)}
+            maxLength={50}
+          />
+        </div>
+
+        <div className="settings-gcash-field">
+          <label className="settings-gcash-label" htmlFor="admin-gcash-number">
+            GCash Mobile Number (11 digits)
+          </label>
+          <input
+            id="admin-gcash-number"
+            type="text"
+            inputMode="numeric"
+            className="settings-gcash-input settings-gcash-input--mono"
+            placeholder="09XXXXXXXXX"
+            value={number}
+            onChange={(e) => setNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            maxLength={11}
+          />
+        </div>
+      </div>
+
+      <div className="settings-gcash-qr-row">
+        <input
+          ref={qrInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleQrFile}
+          style={{ display: 'none' }}
+        />
+        <button
+          type="button"
+          className="settings-btn settings-btn--ghost"
+          onClick={() => qrInputRef.current?.click()}
+        >
+          <Upload size={14} />
+          {qrDataUrl ? 'Change Custom QR Image' : 'Upload New QR Image (Optional)'}
+        </button>
+        {qrDataUrl && (
+          <>
+            <img src={qrDataUrl} alt="Custom QR Preview" className="settings-gcash-qr-thumb" />
+            <button
+              type="button"
+              className="settings-btn settings-btn--ghost"
+              onClick={() => setQrDataUrl('')}
+            >
+              Reset Default QR
+            </button>
+          </>
+        )}
+      </div>
+
+      {errMsg && (
+        <div className="settings-alert settings-alert--warn">
+          <AlertTriangle size={14} />
+          <span>{errMsg}</span>
+        </div>
+      )}
+
+      {saveState === BTN.DONE && (
+        <div className="settings-alert settings-alert--success">
+          <CheckCircle size={14} />
+          <span>Saved! All online donations now go to <strong>{maskedName} ({number})</strong>.</span>
+        </div>
+      )}
+
+      <div className="settings-card-actions">
+        <button
+          type="submit"
+          className={`settings-btn ${
+            saveState === BTN.SENDING ? 'settings-btn--sending' :
+            saveState === BTN.DONE    ? 'settings-btn--done'    :
+                                        'settings-btn--primary'
+          }`}
+          disabled={saveState === BTN.SENDING}
+        >
+          {saveState === BTN.SENDING && <span className="settings-spinner" />}
+          {saveState === BTN.DONE    && <CheckCircle size={14} />}
+          {saveState === BTN.IDLE    && <Save size={14} />}
+          {saveState === BTN.SENDING ? 'Saving...' :
+           saveState === BTN.DONE    ? 'Saved Live ✓' :
+                                       'Save GCash Account'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export default function Settings({ db }) {
   const [isUnlocked, setIsUnlocked] = useState(() => {
     return sessionStorage.getItem(ADMIN_STORAGE_KEY) === 'true'
@@ -197,6 +410,14 @@ export default function Settings({ db }) {
           Lock Admin
         </button>
       </div>
+
+      {/* 0. GCash Recipient Account */}
+      <section className="settings-section">
+        <div className="settings-section-label">
+          <Smartphone size={15} /> Online Donation Recipient (GCash)
+        </div>
+        <GCashRecipientCard db={db} />
+      </section>
 
       {/* 1. Motor & Anti-Clog Auger Controls */}
       <section className="settings-section">
