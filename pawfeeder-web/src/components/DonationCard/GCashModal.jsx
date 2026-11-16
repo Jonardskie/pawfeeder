@@ -42,6 +42,8 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
   // Real-time Bowl Weight & Dispense Status during STEP.DISPENSING
   const [liveBowlWeight, setLiveBowlWeight] = useState(null)
   const [startBowlWeight, setStartBowlWeight] = useState(null)
+  const [liveDispensedG, setLiveDispensedG] = useState(null)
+  const [machinePhase, setMachinePhase] = useState('waiting') // 'waiting' | 'running' | 'done'
 
   const timerRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -63,35 +65,41 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
   // Listen to real-time ESP32 weight & dispense status during STEP.DISPENSING
   useEffect(() => {
     if (step !== STEP.DISPENSING) return
-    const secs = Math.round(tier.grams * 0.08 + 8)
+    const secs = Math.round(tier.grams * 0.25 + 25)
     setCountdown(secs)
+    setMachinePhase('waiting')
+    setLiveDispensedG(0)
 
     let unsubStatus = null
-    let unsubActive = null
-    let sawActiveTrue = false
+    let sawDispensingTrue = false
 
     if (db) {
       const statusRef = ref(db, `feeder/${unitId}/status`)
       unsubStatus = onValue(statusRef, (snap) => {
         const d = snap.val()
-        if (d && typeof d.bowl_weight_g === 'number') {
+        if (!d) return
+
+        if (typeof d.bowl_weight_g === 'number') {
           setLiveBowlWeight(d.bowl_weight_g)
           setStartBowlWeight(prev => (prev === null ? d.bowl_weight_g : prev))
         }
-      })
 
-      const activeRef = ref(db, `feeder/${unitId}/cmd/dispense/active`)
-      unsubActive = onValue(activeRef, (snap) => {
-        const isActive = snap.val()
-        if (isActive === true) {
-          sawActiveTrue = true
-        } else if (sawActiveTrue && isActive === false) {
-          // ESP32 picked up the command and finished!
+        if (typeof d.dispensed_g === 'number' && sawDispensingTrue) {
+          setLiveDispensedG(Math.max(0, d.dispensed_g))
+        }
+
+        if (d.dispensing === true) {
+          sawDispensingTrue = true
+          setMachinePhase('running')
+        } else if (sawDispensingTrue && d.dispensing === false) {
+          // ESP32 finished the full dispense cycle!
+          setMachinePhase('done')
+          setLiveDispensedG(typeof d.dispensed_g === 'number' ? d.dispensed_g : tier.grams)
           clearInterval(timerRef.current)
           setTimeout(() => {
             setStep(STEP.SUCCESS)
             fireConfetti()
-          }, 1200)
+          }, 800)
         }
       })
     }
@@ -111,7 +119,6 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
     return () => {
       clearInterval(timerRef.current)
       if (unsubStatus) unsubStatus()
-      if (unsubActive) unsubActive()
     }
   }, [step, db, unitId, tier.grams])
 
@@ -310,9 +317,18 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
   }
 
   const dispensedSoFar =
-    liveBowlWeight !== null && startBowlWeight !== null
+    liveDispensedG !== null && machinePhase !== 'waiting'
+      ? Math.max(0, liveDispensedG)
+      : liveBowlWeight !== null && startBowlWeight !== null
       ? Math.max(0, liveBowlWeight - startBowlWeight)
-      : null
+      : 0
+
+  const progressPct =
+    machinePhase === 'done'
+      ? 100
+      : machinePhase === 'running'
+      ? Math.min(98, Math.max(8, Math.round((dispensedSoFar / tier.grams) * 100)))
+      : 6
 
   return (
     <div className="gcash-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -598,20 +614,37 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
               <div className="gcash-paw-ring" />
               🐾
             </div>
-            <div className="gcash-dispensing-title">Feeding the Animals!</div>
+            <div className="gcash-dispensing-title">
+              {machinePhase === 'waiting'
+                ? 'Connecting to Feeder...'
+                : machinePhase === 'done'
+                ? 'Dispense Complete!'
+                : 'Feeding the Animals!'}
+            </div>
             <div className="gcash-dispensing-sub">
-              Motor running • Target: <strong>{tier.grams}g</strong>
-              {dispensedSoFar !== null && (
-                <> • Dispensed: <strong>{dispensedSoFar.toFixed(1)}g</strong></>
+              {machinePhase === 'waiting' ? (
+                <>Sending <strong>{tier.grams}g</strong> command to ESP32...</>
+              ) : (
+                <>
+                  Motor running • Target: <strong>{tier.grams}g</strong> • Dispensed:{' '}
+                  <strong>{dispensedSoFar.toFixed(1)}g</strong> ({progressPct}%)
+                </>
               )}
             </div>
             <div className="gcash-progress-bar">
-              <div className="gcash-progress-fill" style={{ animationDuration: `${countdown + 1}s` }} />
+              <div
+                className="gcash-progress-fill"
+                style={{
+                  width: `${progressPct}%`,
+                  animation: 'none',
+                  transition: 'width 0.4s ease',
+                }}
+              />
             </div>
             <div className="gcash-dispensing-countdown">
               {liveBowlWeight !== null
-                ? `Live Bowl Scale: ${liveBowlWeight.toFixed(1)}g (~${countdown}s remaining)`
-                : `~${countdown}s remaining`}
+                ? `Live Bowl Scale: ${liveBowlWeight.toFixed(1)}g • Safety timeout: ${countdown}s`
+                : `Waiting for live scale... (${countdown}s)`}
             </div>
             <div className="gcash-dispensing-thanks">
               Thank you, <strong>{donorName}</strong>! 🧡<br />
