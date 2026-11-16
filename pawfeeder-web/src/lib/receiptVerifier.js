@@ -1,13 +1,13 @@
 // ============================================================
 //  GCash Receipt OCR & Security Verifier
-//  Target Account: K** AL**N S. | 09556856270 | ID: ••••9TC2YV
+//  Target Account: JONARD S. | 09535497843
 // ============================================================
 
 export const GCASH_ACCOUNT = {
-  maskedName: 'K** AL**N S.',
-  number: '09556856270',
-  formattedNumber: '+63 955 685 6270',
-  userIdSuffix: '9TC2YV',
+  maskedName: 'JONARD S.',
+  number: '09535497843',
+  formattedNumber: '+63 953 549 7843',
+  userIdSuffix: '',
 }
 
 /**
@@ -131,16 +131,15 @@ export async function scanGcashReceipt(file, expectedPhp, onProgress) {
     upper.includes('INSTAPAY') ||
     upper.includes('EXPRESS')
 
-  // 2. Check Recipient (09556856270 / +63 955 685 6270 / K** AL**N S. / 9TC2YV)
+  // 2. Check Recipient (09535497843 / +63 953 549 7843 / JONARD S.)
   const recipientMatched =
-    digitsOnly.includes('9556856270') ||
-    digitsOnly.includes('955685') ||
-    digitsOnly.includes('6856270') ||
-    upper.includes('955 685') ||
-    upper.includes('685 6270') ||
-    upper.includes('9TC2YV') ||
-    /K[\s*•.]*AL[\s*•.]*N/.test(upper) ||
-    upper.includes('AL**N')
+    digitsOnly.includes('9535497843') ||
+    digitsOnly.includes('953549') ||
+    digitsOnly.includes('5497843') ||
+    upper.includes('953 549') ||
+    upper.includes('549 7843') ||
+    upper.includes('JONARD') ||
+    /JO[\s*•.]*RD/.test(upper)
 
   // 3. Check Amount (e.g. "30.00" for ₱30)
   const amountRegex = new RegExp(`(?<!\\d)${expectedPhp}[.,]\\s*00(?!\\d)`)
@@ -190,7 +189,7 @@ export async function scanGcashReceipt(file, expectedPhp, onProgress) {
   if (!extractedRef) {
     const thirteenMatches = rawText.match(/(?<!\d)\d{13}(?!\d)/g) || []
     for (const m of thirteenMatches) {
-      if (!m.includes('9556856270')) {
+      if (!m.includes('9535497843')) {
         extractedRef = m
         break
       }
