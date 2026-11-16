@@ -327,91 +327,82 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
               <div className="gcash-logo-row">
                 <div className="gcash-logo-badge">G</div>
                 <div>
-                  <div className="gcash-title">GCash Donation</div>
-                  <div className="gcash-subtitle">Scan or Open App · Pay · Verify Receipt · Feed! 🐾</div>
+                  <div className="gcash-title">GCash Donation • ₱{tier.php} ({tier.grams}g)</div>
+                  <div className="gcash-subtitle">Scan QR or Copy Number · Pay · Verify Receipt · Feed! 🐾</div>
                 </div>
               </div>
             </div>
 
-            <div className="gcash-amount-pill">
-              <span className="gcash-amount-label">You are donating</span>
-              <span className="gcash-amount-value">₱{tier.php}</span>
-              <span className="gcash-amount-sub">→ {tier.grams}g of food for stray animals</span>
-            </div>
-
-            {/* Mobile App Launch or Laptop Scan Advice */}
-            {isMobile ? (
-              <div className="gcash-app-launch-card">
-                <button className="gcash-launch-app-btn" onClick={handleOpenGCash}>
-                  <ExternalLink size={18} />
-                  Open GCash App & Auto-Copy Number
-                </button>
-                {redirectToast ? (
-                  <div className="gcash-launch-toast animate-fade-in">
-                    📋 <strong>{GCASH_NUMBER}</strong> copied to clipboard! Opening GCash app... Just paste number and enter <strong>₱{tier.php}</strong>.
-                  </div>
-                ) : (
-                  <span className="gcash-launch-subtext">
-                    Copies <strong>{GCASH_NUMBER}</strong> and opens your GCash app
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="gcash-app-launch-card gcash-app-launch-card--laptop">
-                <div className="gcash-laptop-hint">
-                  💻 <strong>Using a Laptop / Computer:</strong><br />
-                  Open the <strong>GCash app on your mobile phone</strong>, tap <strong>Scan QR</strong>, and scan the QR code below!
-                </div>
-              </div>
-            )}
-
-            {/* QR Code with Save Option */}
-            <div className="gcash-qr-wrapper">
-              <img src={gcashQr} alt="GCash QR Code" className="gcash-qr-img" />
-              <div className="gcash-qr-actions">
-                <button className="gcash-save-qr-btn" onClick={handleSaveQr}>
-                  <Download size={13} />
-                  Save QR to Gallery
-                </button>
-              </div>
-              <div className="gcash-qr-hint">
-                In GCash: <strong>Scan QR</strong> from camera or gallery → Enter <strong>₱{tier.php}</strong>
-              </div>
-            </div>
-
-            {/* Account Details Box */}
-            <div className="gcash-details-box">
-              <div className="gcash-detail-row">
-                <span className="gcash-detail-label">Account Name</span>
-                <span className="gcash-detail-val">{GCASH_NAME}</span>
-              </div>
-              <div className="gcash-detail-row">
-                <span className="gcash-detail-label">Mobile Number</span>
-                <div className="gcash-detail-copy-row">
-                  <span className="gcash-detail-val gcash-number">{GCASH_NUMBER}</span>
-                  <button className="gcash-copy-btn" onClick={copyNumber}>
-                    {copied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
-                    {copied ? 'Copied!' : 'Copy'}
+            <div className="gcash-scroll-body">
+              <div className="gcash-qr-grid">
+                {/* Left: QR Code with Save Option */}
+                <div className="gcash-qr-wrapper">
+                  <img src={gcashQr} alt="GCash QR Code" className="gcash-qr-img" />
+                  <button className="gcash-save-qr-btn" onClick={handleSaveQr}>
+                    <Download size={12} />
+                    Save QR
                   </button>
                 </div>
-              </div>
-              <div className="gcash-detail-row gcash-detail-row--amount">
-                <span className="gcash-detail-label">Amount to Send</span>
-                <span className="gcash-detail-val gcash-send-amount">₱{tier.php}.00</span>
+
+                {/* Right: Account Details, Mobile Launch & Steps */}
+                <div className="gcash-qr-side">
+                  {isMobile ? (
+                    <div className="gcash-app-launch-card">
+                      <button className="gcash-launch-app-btn" onClick={handleOpenGCash}>
+                        <ExternalLink size={16} />
+                        Open GCash App &amp; Copy No.
+                      </button>
+                      {redirectToast && (
+                        <div className="gcash-launch-toast animate-fade-in">
+                          📋 <strong>{GCASH_NUMBER}</strong> copied! Enter <strong>₱{tier.php}</strong>.
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="gcash-app-launch-card gcash-app-launch-card--laptop">
+                      <div className="gcash-laptop-hint">
+                        💻 Open <strong>GCash on your phone</strong> → tap <strong>Scan QR</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="gcash-details-box">
+                    <div className="gcash-detail-row">
+                      <span className="gcash-detail-label">Account Name</span>
+                      <span className="gcash-detail-val">{GCASH_NAME}</span>
+                    </div>
+                    <div className="gcash-detail-row">
+                      <span className="gcash-detail-label">Mobile No.</span>
+                      <div className="gcash-detail-copy-row">
+                        <span className="gcash-detail-val gcash-number">{GCASH_NUMBER}</span>
+                        <button className="gcash-copy-btn" onClick={copyNumber}>
+                          {copied ? <CheckCircle2 size={12} /> : <Copy size={12} />}
+                          {copied ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="gcash-detail-row gcash-detail-row--amount">
+                      <span className="gcash-detail-label">Amount</span>
+                      <span className="gcash-detail-val gcash-send-amount">₱{tier.php}.00 → {tier.grams}g</span>
+                    </div>
+                  </div>
+
+                  <div className="gcash-steps-hint">
+                    <div className="gcash-step-item"><span className="gcash-step-num">1</span> Scan QR or Copy No.</div>
+                    <div className="gcash-step-item"><span className="gcash-step-num">2</span> Send <strong>₱{tier.php}.00</strong></div>
+                    <div className="gcash-step-item"><span className="gcash-step-num">3</span> Save Receipt</div>
+                    <div className="gcash-step-item"><span className="gcash-step-num">4</span> Verify &amp; Feed!</div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="gcash-steps-hint">
-              <div className="gcash-step-item"><span className="gcash-step-num">1</span> Tap <strong>Open GCash App</strong> or Scan QR</div>
-              <div className="gcash-step-item"><span className="gcash-step-num">2</span> Send <strong>₱{tier.php}.00</strong> to <strong>{GCASH_NAME}</strong> ({GCASH_NUMBER})</div>
-              <div className="gcash-step-item"><span className="gcash-step-num">3</span> Save or screenshot your <strong>GCash Receipt</strong></div>
-              <div className="gcash-step-item"><span className="gcash-step-num">4</span> Tap below to <strong>Scan Receipt & Feed</strong>!</div>
+            <div className="gcash-modal-footer">
+              <button className="gcash-next-btn" onClick={() => setStep(STEP.VERIFY)}>
+                <Send size={16} />
+                I&apos;ve Sent ₱{tier.php} — Verify Receipt
+              </button>
             </div>
-
-            <button className="gcash-next-btn" onClick={() => setStep(STEP.VERIFY)}>
-              <Send size={16} />
-              I&apos;ve Sent ₱{tier.php} — Verify Receipt
-            </button>
           </>
         )}
 
@@ -421,181 +412,181 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
             <div className="gcash-header">
               <div className="gcash-logo-row">
                 <div className="gcash-logo-badge gcash-logo-badge--green">
-                  <ShieldCheck size={22} />
+                  <ShieldCheck size={20} />
                 </div>
                 <div>
-                  <div className="gcash-title">Verify GCash Receipt</div>
-                  <div className="gcash-subtitle">Smart OCR checks recipient, amount & 13-digit Ref No.</div>
+                  <div className="gcash-title">Verify GCash Receipt • ₱{tier.php} ({tier.grams}g)</div>
+                  <div className="gcash-subtitle">To {GCASH_NAME} · Smart OCR checks amount &amp; 13-digit Ref No.</div>
                 </div>
               </div>
             </div>
 
-            <div className="gcash-amount-pill gcash-amount-pill--verify">
-              <span className="gcash-amount-label">Verifying</span>
-              <span className="gcash-amount-value">₱{tier.php}</span>
-              <span className="gcash-amount-sub">{tier.grams}g • To {GCASH_NAME}</span>
-            </div>
-
-            <div className="gcash-form">
-              <label className="gcash-label" htmlFor="gcash-donor-name">
-                Your Name <span className="gcash-required">*</span>
-              </label>
-              <input
-                id="gcash-donor-name"
-                className="gcash-input"
-                type="text"
-                placeholder="e.g. Maria Santos"
-                value={donorName}
-                onChange={e => setDonorName(e.target.value)}
-                maxLength={60}
-                autoFocus
-              />
-
-              {/* Receipt Screenshot Upload Box */}
-              <label className="gcash-label">
-                GCash Receipt Screenshot {!manualMode && <span className="gcash-required">*</span>}
-              </label>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleReceiptUpload}
-                style={{ display: 'none' }}
-              />
-
-              <div
-                className={`gcash-upload-box ${receiptFile ? 'gcash-upload-box--has-file' : ''}`}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {receiptPreview ? (
-                  <div className="gcash-upload-preview-row">
-                    <img src={receiptPreview} alt="Receipt preview" className="gcash-receipt-thumb" />
-                    <div className="gcash-upload-meta">
-                      <div className="gcash-upload-filename">
-                        <FileCheck2 size={14} color="#00c896" />
-                        <span>{receiptFile?.name}</span>
-                      </div>
-                      {scanning ? (
-                        <div className="gcash-scan-progress-wrap">
-                          <div className="gcash-scan-status">
-                            <span className="gcash-spinner" /> Scanning receipt... {scanProgress}%
-                          </div>
-                          <div className="gcash-scan-bar">
-                            <div className="gcash-scan-bar-fill" style={{ width: `${scanProgress}%` }} />
-                          </div>
-                        </div>
-                      ) : scanResult ? (
-                        <div className="gcash-scan-checks">
-                          <span className={`gcash-check-pill ${scanResult.recipientMatched ? 'ok' : 'warn'}`}>
-                            {scanResult.recipientMatched ? '✓ Recipient Matched' : '• Check Recipient'}
-                          </span>
-                          <span className={`gcash-check-pill ${scanResult.amountMatched ? 'ok' : 'warn'}`}>
-                            {scanResult.amountMatched ? `✓ ₱${tier.php}.00 Verified` : '• Check Amount'}
-                          </span>
-                          <span className={`gcash-check-pill ${scanResult.extractedRef ? 'ok' : 'warn'}`}>
-                            {scanResult.extractedRef ? '✓ 13-Digit Ref Extracted' : '• Enter Ref Below'}
-                          </span>
-                        </div>
-                      ) : null}
-                      <span className="gcash-upload-change">Tap to replace screenshot</span>
-                    </div>
+            <div className="gcash-scroll-body">
+              <div className="gcash-form">
+                <div className="gcash-form-row">
+                  <div className="gcash-field">
+                    <label className="gcash-label" htmlFor="gcash-donor-name">
+                      Your Name <span className="gcash-required">*</span>
+                    </label>
+                    <input
+                      id="gcash-donor-name"
+                      className="gcash-input"
+                      type="text"
+                      placeholder="e.g. Maria Santos"
+                      value={donorName}
+                      onChange={e => setDonorName(e.target.value)}
+                      maxLength={60}
+                      autoFocus
+                    />
                   </div>
-                ) : (
-                  <div className="gcash-upload-empty">
-                    <Upload size={22} className="gcash-upload-icon" />
-                    <div className="gcash-upload-title">Upload GCash Receipt Screenshot</div>
-                    <div className="gcash-upload-sub">
-                      Auto-extracts your 13-digit Reference No. & verifies ₱{tier.php}.00 payment
+
+                  <div className="gcash-field">
+                    <label className="gcash-label" htmlFor="gcash-ref-code">
+                      13-Digit GCash Ref No. <span className="gcash-required">*</span>
+                    </label>
+                    <input
+                      id="gcash-ref-code"
+                      className="gcash-input gcash-input--mono"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="13 digits (auto-filled)"
+                      value={refCode}
+                      onChange={e => setRefCode(e.target.value.replace(/\D/g, '').slice(0, 13))}
+                      maxLength={13}
+                    />
+                  </div>
+                </div>
+
+                {/* Receipt Screenshot Upload Box */}
+                <label className="gcash-label">
+                  GCash Receipt Screenshot {!manualMode && <span className="gcash-required">*</span>}
+                </label>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleReceiptUpload}
+                  style={{ display: 'none' }}
+                />
+
+                <div
+                  className={`gcash-upload-box ${receiptFile ? 'gcash-upload-box--has-file' : ''}`}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {receiptPreview ? (
+                    <div className="gcash-upload-preview-row">
+                      <img src={receiptPreview} alt="Receipt preview" className="gcash-receipt-thumb" />
+                      <div className="gcash-upload-meta">
+                        <div className="gcash-upload-filename">
+                          <FileCheck2 size={14} color="#00c896" />
+                          <span>{receiptFile?.name}</span>
+                        </div>
+                        {scanning ? (
+                          <div className="gcash-scan-progress-wrap">
+                            <div className="gcash-scan-status">
+                              <span className="gcash-spinner" /> Scanning receipt... {scanProgress}%
+                            </div>
+                            <div className="gcash-scan-bar">
+                              <div className="gcash-scan-bar-fill" style={{ width: `${scanProgress}%` }} />
+                            </div>
+                          </div>
+                        ) : scanResult ? (
+                          <div className="gcash-scan-checks">
+                            <span className={`gcash-check-pill ${scanResult.recipientMatched ? 'ok' : 'warn'}`}>
+                              {scanResult.recipientMatched ? '✓ Recipient Matched' : '• Check Recipient'}
+                            </span>
+                            <span className={`gcash-check-pill ${scanResult.amountMatched ? 'ok' : 'warn'}`}>
+                              {scanResult.amountMatched ? `✓ ₱${tier.php}.00 Verified` : '• Check Amount'}
+                            </span>
+                            <span className={`gcash-check-pill ${scanResult.extractedRef ? 'ok' : 'warn'}`}>
+                              {scanResult.extractedRef ? '✓ 13-Digit Ref Extracted' : '• Enter Ref Above'}
+                            </span>
+                          </div>
+                        ) : null}
+                        <span className="gcash-upload-change">Tap to replace screenshot</span>
+                      </div>
                     </div>
+                  ) : (
+                    <div className="gcash-upload-empty">
+                      <Upload size={18} className="gcash-upload-icon" />
+                      <div className="gcash-upload-title">Upload GCash Receipt Screenshot</div>
+                      <div className="gcash-upload-sub">
+                        Auto-extracts 13-digit Ref No. &amp; verifies ₱{tier.php}.00 ({refCode.length}/13 digits)
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Toggle for Laptop users who paid on their phone */}
+                <button
+                  type="button"
+                  className="gcash-manual-toggle"
+                  onClick={() => setManualMode(prev => !prev)}
+                >
+                  <Smartphone size={13} />
+                  {manualMode
+                    ? 'Use Receipt Screenshot Scanner instead'
+                    : 'Paid on another phone? Verify manually with 13-digit Ref No.'}
+                </button>
+
+                {manualMode && (
+                  <div className="gcash-field">
+                    <label className="gcash-label" htmlFor="gcash-sender-last4">
+                      Last 4 Digits of Your GCash Mobile No. <span className="gcash-required">*</span>
+                    </label>
+                    <input
+                      id="gcash-sender-last4"
+                      className="gcash-input gcash-input--mono"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="e.g. 6270"
+                      value={senderLast4}
+                      onChange={e => setSenderLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      maxLength={4}
+                    />
                   </div>
                 )}
+
+                <label className="gcash-label" htmlFor="gcash-message">
+                  Message for the Animals 🐾 <span className="gcash-optional">(optional)</span>
+                </label>
+                <textarea
+                  id="gcash-message"
+                  className="gcash-textarea"
+                  placeholder="e.g. Stay safe little ones! 🐶"
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  maxLength={120}
+                  rows={1}
+                />
               </div>
 
-              {/* Toggle for Laptop users who paid on their phone */}
-              <button
-                type="button"
-                className="gcash-manual-toggle"
-                onClick={() => setManualMode(prev => !prev)}
-              >
-                <Smartphone size={13} />
-                {manualMode
-                  ? 'Use Receipt Screenshot Scanner instead'
-                  : 'Paid on another phone? Verify manually with 13-digit Ref No.'}
-              </button>
-
-              {manualMode && (
-                <>
-                  <label className="gcash-label" htmlFor="gcash-sender-last4">
-                    Last 4 Digits of Your GCash Mobile No. <span className="gcash-required">*</span>
-                  </label>
-                  <input
-                    id="gcash-sender-last4"
-                    className="gcash-input gcash-input--mono"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="e.g. 6270"
-                    value={senderLast4}
-                    onChange={e => setSenderLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    maxLength={4}
-                  />
-                </>
+              {error && (
+                <div className="gcash-error-box">
+                  <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>{error}</span>
+                </div>
               )}
-
-              <label className="gcash-label" htmlFor="gcash-ref-code">
-                13-Digit GCash Reference No. <span className="gcash-required">*</span>
-              </label>
-              <input
-                id="gcash-ref-code"
-                className="gcash-input gcash-input--mono"
-                type="text"
-                inputMode="numeric"
-                placeholder="13 digits (e.g. 0012345678901)"
-                value={refCode}
-                onChange={e => setRefCode(e.target.value.replace(/\D/g, '').slice(0, 13))}
-                maxLength={13}
-              />
-              <div className="gcash-input-hint">
-                {refCode.length}/13 digits • Each GCash reference number & receipt can only be used once.
-              </div>
-
-              <label className="gcash-label" htmlFor="gcash-message">
-                Message for the Animals 🐾 <span className="gcash-optional">(optional)</span>
-              </label>
-              <textarea
-                id="gcash-message"
-                className="gcash-textarea"
-                placeholder="e.g. Stay safe little ones! 🐶"
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                maxLength={120}
-                rows={2}
-              />
-              <div className="gcash-char-count">{message.length}/120</div>
             </div>
 
-            {error && (
-              <div className="gcash-error-box">
-                <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 2 }} />
-                <span>{error}</span>
+            <div className="gcash-modal-footer">
+              <div className="gcash-verify-actions">
+                <button className="gcash-back-btn" onClick={() => { setStep(STEP.QR); setError('') }}>
+                  ← Back
+                </button>
+                <button
+                  className="gcash-verify-btn"
+                  onClick={handleVerify}
+                  disabled={loading || scanning}
+                >
+                  {loading
+                    ? <><span className="gcash-spinner" /> Verifying...</>
+                    : scanning
+                    ? <><span className="gcash-spinner" /> Scanning...</>
+                    : <><Heart size={16} /> Verify &amp; Feed {tier.grams}g!</>}
+                </button>
               </div>
-            )}
-
-            <div className="gcash-verify-actions">
-              <button className="gcash-back-btn" onClick={() => { setStep(STEP.QR); setError('') }}>
-                ← Back
-              </button>
-              <button
-                className="gcash-verify-btn"
-                onClick={handleVerify}
-                disabled={loading || scanning}
-              >
-                {loading
-                  ? <><span className="gcash-spinner" /> Verifying...</>
-                  : scanning
-                  ? <><span className="gcash-spinner" /> Scanning...</>
-                  : <><Heart size={16} /> Verify &amp; Feed {tier.grams}g!</>}
-              </button>
             </div>
           </>
         )}
