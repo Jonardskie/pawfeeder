@@ -10,6 +10,17 @@ import LogsPage        from './pages/LogsPage'
 import Settings        from './pages/Settings'
 
 export default function App() {
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('pawfeeder_theme') || 'dark'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('pawfeeder_theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => setTheme(prev => (prev === 'dark' ? 'light' : 'dark'))
+
   const [deviceStatus, setDeviceStatus] = useState({
     online:   false,
     rssi:     null,
@@ -51,7 +62,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <DashboardLayout deviceStatus={deviceStatus}>
+      <DashboardLayout deviceStatus={deviceStatus} theme={theme} onToggleTheme={toggleTheme}>
         <Routes>
           <Route path="/"         element={<Dashboard db={db} deviceStatus={deviceStatus} />} />
           <Route path="/feed"     element={<LiveFeedPage />} />

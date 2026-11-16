@@ -366,8 +366,8 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
               <div className="gcash-logo-row">
                 <div className="gcash-logo-badge">G</div>
                 <div>
-                  <div className="gcash-title">GCash Donation • ₱{tier.php} ({tier.grams}g)</div>
-                  <div className="gcash-subtitle">Scan QR or Copy Number · Pay · Verify Receipt · Feed! 🐾</div>
+                  <div className="gcash-title">Pay with GCash • ₱{tier.php} ({tier.grams}g)</div>
+                  <div className="gcash-subtitle">1. Pay  •  2. Upload Receipt  •  3. Feed! 🐾</div>
                 </div>
               </div>
             </div>
@@ -427,10 +427,10 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
                   </div>
 
                   <div className="gcash-steps-hint">
-                    <div className="gcash-step-item"><span className="gcash-step-num">1</span> Scan QR or Copy No.</div>
-                    <div className="gcash-step-item"><span className="gcash-step-num">2</span> Send <strong>₱{tier.php}.00</strong></div>
+                    <div className="gcash-step-item"><span className="gcash-step-num">1</span> Scan QR / Copy</div>
+                    <div className="gcash-step-item"><span className="gcash-step-num">2</span> Send <strong>₱{tier.php}</strong></div>
                     <div className="gcash-step-item"><span className="gcash-step-num">3</span> Save Receipt</div>
-                    <div className="gcash-step-item"><span className="gcash-step-num">4</span> Verify &amp; Feed!</div>
+                    <div className="gcash-step-item"><span className="gcash-step-num">4</span> Tap Next</div>
                   </div>
                 </div>
               </div>
@@ -439,7 +439,7 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
             <div className="gcash-modal-footer">
               <button className="gcash-next-btn" onClick={() => setStep(STEP.VERIFY)}>
                 <Send size={16} />
-                I&apos;ve Sent ₱{tier.php} — Verify Receipt
+                Next: Upload Receipt →
               </button>
             </div>
           </>
@@ -454,8 +454,8 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
                   <ShieldCheck size={20} />
                 </div>
                 <div>
-                  <div className="gcash-title">Verify GCash Receipt • ₱{tier.php} ({tier.grams}g)</div>
-                  <div className="gcash-subtitle">To {GCASH_NAME} · Smart OCR checks amount &amp; 13-digit Ref No.</div>
+                  <div className="gcash-title">Upload Receipt • ₱{tier.php} ({tier.grams}g)</div>
+                  <div className="gcash-subtitle">Upload your GCash receipt to feed the animals</div>
                 </div>
               </div>
             </div>
@@ -549,9 +549,9 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
                   ) : (
                     <div className="gcash-upload-empty">
                       <Upload size={18} className="gcash-upload-icon" />
-                      <div className="gcash-upload-title">Upload GCash Receipt Screenshot</div>
+                      <div className="gcash-upload-title">Tap to Upload GCash Receipt</div>
                       <div className="gcash-upload-sub">
-                        Auto-extracts 13-digit Ref No. &amp; verifies ₱{tier.php}.00 ({refCode.length}/13 digits)
+                        Auto-fills your 13-digit Ref No. ({refCode.length}/13 digits)
                       </div>
                     </div>
                   )}
@@ -620,10 +620,10 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
                   disabled={loading || scanning}
                 >
                   {loading
-                    ? <><span className="gcash-spinner" /> Verifying...</>
+                    ? <><span className="gcash-spinner" /> Sending...</>
                     : scanning
-                    ? <><span className="gcash-spinner" /> Scanning...</>
-                    : <><Heart size={16} /> Verify &amp; Feed {tier.grams}g!</>}
+                    ? <><span className="gcash-spinner" /> Reading...</>
+                    : <><Heart size={16} /> Confirm &amp; Feed {tier.grams}g! 🐾</>}
                 </button>
               </div>
             </div>

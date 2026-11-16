@@ -20,15 +20,20 @@
 }
 
 @keyframes gcash-overlay-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 /* ─── Modal Sheet ─── */
 .gcash-modal {
   position: relative;
-  background: #0f1117;
-  border: 1px solid rgba(255,255,255,0.09);
+  background: var(--bg-card, #0f1117);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.09));
   border-radius: 18px;
   padding: 12px 14px;
   width: 100%;
@@ -39,6 +44,21 @@
   flex-direction: column;
   gap: 8px;
   animation: gcash-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root[data-theme="light"] .gcash-details-box,
+:root[data-theme="light"] .gcash-steps-hint,
+:root[data-theme="light"] .gcash-app-launch-card--laptop,
+:root[data-theme="light"] .gcash-input,
+:root[data-theme="light"] .gcash-textarea,
+:root[data-theme="light"] .gcash-back-btn {
+  background: #F3F4F6;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+:root[data-theme="light"] .gcash-close {
+  background: rgba(15, 23, 42, 0.06);
+  border-color: rgba(15, 23, 42, 0.12);
 }
 
 .gcash-scroll-body {
@@ -144,10 +164,12 @@
   .gcash-modal {
     padding: 18px 22px;
   }
+
   .gcash-qr-grid {
     grid-template-columns: 185px 1fr;
     gap: 14px;
   }
+
   .gcash-form-row {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
@@ -155,8 +177,15 @@
 }
 
 @keyframes gcash-slide-up {
-  from { transform: translateY(40px); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 /* ─── Close Button ─── */
@@ -164,8 +193,8 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
   width: 36px;
   height: 36px;
@@ -176,10 +205,16 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.gcash-close:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+.gcash-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
 
 /* ─── Header ─── */
-.gcash-header { margin-bottom: 2px; }
+.gcash-header {
+  margin-bottom: 2px;
+}
 
 .gcash-logo-row {
   display: flex;
@@ -224,16 +259,16 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: linear-gradient(135deg, rgba(0,123,255,0.12), rgba(0,200,150,0.08));
-  border: 1px solid rgba(0,123,255,0.25);
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.12), rgba(0, 200, 150, 0.08));
+  border: 1px solid rgba(0, 123, 255, 0.25);
   border-radius: 12px;
   padding: 8px 14px;
   flex-wrap: wrap;
 }
 
 .gcash-amount-pill--verify {
-  background: linear-gradient(135deg, rgba(0,200,150,0.12), rgba(0,123,255,0.08));
-  border-color: rgba(0,200,150,0.3);
+  background: linear-gradient(135deg, rgba(0, 200, 150, 0.12), rgba(0, 123, 255, 0.08));
+  border-color: rgba(0, 200, 150, 0.3);
 }
 
 .gcash-amount-label {
@@ -259,8 +294,8 @@
 
 /* ─── App Launch Card ─── */
 .gcash-app-launch-card {
-  background: linear-gradient(135deg, rgba(0,123,255,0.15), rgba(0,86,210,0.08));
-  border: 1px solid rgba(0,123,255,0.3);
+  background: linear-gradient(135deg, rgba(0, 123, 255, 0.15), rgba(0, 86, 210, 0.08));
+  border: 1px solid rgba(0, 123, 255, 0.3);
   border-radius: 16px;
   padding: 12px 14px;
   display: flex;
@@ -280,6 +315,7 @@
   color: var(--text-primary);
   line-height: 1.5;
 }
+
 .gcash-laptop-hint strong {
   color: #00c896;
 }
@@ -379,8 +415,8 @@
 
 /* ─── Account Details Box ─── */
 .gcash-details-box {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 12px;
   padding: 9px 14px;
   display: flex;
@@ -395,7 +431,9 @@
   gap: 8px;
 }
 
-.gcash-detail-row--amount .gcash-detail-val { color: #00c896; }
+.gcash-detail-row--amount .gcash-detail-val {
+  color: #00c896;
+}
 
 .gcash-detail-label {
   font-size: 0.7rem;
@@ -409,9 +447,15 @@
   color: var(--text-primary);
 }
 
-.gcash-number { font-family: 'Courier New', monospace; letter-spacing: 0.04em; }
+.gcash-number {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.04em;
+}
 
-.gcash-send-amount { color: #00c896; font-size: 1rem; }
+.gcash-send-amount {
+  color: #00c896;
+  font-size: 1rem;
+}
 
 .gcash-detail-copy-row {
   display: flex;
@@ -425,23 +469,26 @@
   gap: 4px;
   font-size: 0.7rem;
   font-weight: 700;
-  background: rgba(0,123,255,0.14);
+  background: rgba(0, 123, 255, 0.14);
   color: #007bff;
-  border: 1px solid rgba(0,123,255,0.3);
+  border: 1px solid rgba(0, 123, 255, 0.3);
   border-radius: 8px;
   padding: 4px 10px;
   cursor: pointer;
   transition: background 0.15s;
 }
-.gcash-copy-btn:hover { background: rgba(0,123,255,0.25); }
+
+.gcash-copy-btn:hover {
+  background: rgba(0, 123, 255, 0.25);
+}
 
 /* ─── Steps Hint ─── */
 .gcash-steps-hint {
   display: grid;
   grid-template-columns: 1fr;
   gap: 5px;
-  background: rgba(255,255,255,0.03);
-  border: 1px dashed rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 8px 12px;
 }
@@ -494,6 +541,7 @@
   box-shadow: 0 4px 20px rgba(0, 123, 255, 0.4);
   animation: glow-pulse 2.5s ease-in-out infinite;
 }
+
 .gcash-next-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 28px rgba(0, 123, 255, 0.55);
@@ -513,24 +561,31 @@
   margin-top: 6px;
 }
 
-.gcash-required { color: #ff4d4d; }
-.gcash-optional { color: var(--text-muted); font-weight: 400; }
+.gcash-required {
+  color: #ff4d4d;
+}
+
+.gcash-optional {
+  color: var(--text-muted);
+  font-weight: 400;
+}
 
 .gcash-input {
   width: 100%;
   padding: 11px 14px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   color: var(--text-primary);
   font-size: 0.9rem;
   transition: border-color 0.15s, box-shadow 0.15s;
   box-sizing: border-box;
 }
+
 .gcash-input:focus {
   outline: none;
   border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0,123,255,0.18);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.18);
 }
 
 .gcash-input--mono {
@@ -542,8 +597,8 @@
 .gcash-textarea {
   width: 100%;
   padding: 10px 14px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   color: var(--text-primary);
   font-size: 0.85rem;
@@ -552,10 +607,11 @@
   box-sizing: border-box;
   font-family: inherit;
 }
+
 .gcash-textarea:focus {
   outline: none;
   border-color: #007bff;
-  box-shadow: 0 0 0 3px rgba(0,123,255,0.15);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
 }
 
 .gcash-input-hint {
@@ -594,8 +650,8 @@
 .gcash-back-btn {
   flex: 0 0 auto;
   padding: 14px 18px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   color: var(--text-muted);
   font-size: 0.85rem;
@@ -603,7 +659,10 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.gcash-back-btn:hover { background: rgba(255,255,255,0.1); }
+
+.gcash-back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
 
 .gcash-verify-btn {
   flex: 1;
@@ -622,15 +681,21 @@
   transition: transform 0.15s, box-shadow 0.15s;
   box-shadow: 0 4px 18px rgba(0, 200, 150, 0.35);
 }
+
 .gcash-verify-btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 6px 24px rgba(0, 200, 150, 0.5);
 }
-.gcash-verify-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.gcash-verify-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .gcash-spinner {
-  width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.3);
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;
   display: inline-block;
@@ -683,7 +748,7 @@
 .gcash-progress-bar {
   width: 100%;
   height: 8px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -697,8 +762,13 @@
 }
 
 @keyframes gcash-progress-grow {
-  from { width: 0%; }
-  to   { width: 100%; }
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
 }
 
 .gcash-dispensing-countdown {
@@ -711,8 +781,8 @@
   font-size: 0.88rem;
   color: var(--text-muted);
   line-height: 1.6;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 14px 16px;
   width: 100%;
@@ -728,12 +798,23 @@
   text-align: center;
 }
 
-.gcash-success-icon { font-size: 3.5rem; animation: gcash-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.gcash-success-icon {
+  font-size: 3.5rem;
+  animation: gcash-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
 @keyframes gcash-pop {
-  0%   { transform: scale(0); }
-  70%  { transform: scale(1.2); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0);
+  }
+
+  70% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .gcash-success-title {
@@ -749,8 +830,8 @@
 
 .gcash-success-card {
   width: 100%;
-  background: rgba(0,200,150,0.06);
-  border: 1px solid rgba(0,200,150,0.2);
+  background: rgba(0, 200, 150, 0.06);
+  border: 1px solid rgba(0, 200, 150, 0.2);
   border-radius: 14px;
   padding: 14px 16px;
   display: flex;
@@ -765,14 +846,20 @@
   align-items: center;
   font-size: 0.83rem;
 }
-.gcash-success-row span { color: var(--text-muted); }
-.gcash-success-row strong { color: var(--text-primary); }
+
+.gcash-success-row span {
+  color: var(--text-muted);
+}
+
+.gcash-success-row strong {
+  color: var(--text-primary);
+}
 
 .gcash-success-message {
   font-size: 0.8rem;
   color: var(--text-muted);
   font-style: italic;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   padding-top: 10px;
   margin-top: 2px;
 }
@@ -780,8 +867,8 @@
 .gcash-success-logged {
   font-size: 0.72rem;
   color: var(--text-muted);
-  background: rgba(255,255,255,0.04);
-  border: 1px dashed rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 8px 14px;
   width: 100%;
@@ -798,12 +885,13 @@
   font-weight: 800;
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
-  box-shadow: 0 4px 18px rgba(0,123,255,0.4);
+  box-shadow: 0 4px 18px rgba(0, 123, 255, 0.4);
   margin-top: 4px;
 }
+
 .gcash-done-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 26px rgba(0,123,255,0.55);
+  box-shadow: 0 6px 26px rgba(0, 123, 255, 0.55);
 }
 
 /* ─── Receipt Screenshot Upload & OCR Scanner ─── */

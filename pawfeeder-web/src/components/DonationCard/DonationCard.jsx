@@ -92,14 +92,14 @@ export default function DonationCard({ db, unitId = 'unit001', currentBowlWeight
       <div className="donation card">
         <div className="card-header">
           <div className="dispense-title-row">
-            <span className="card-title">🍲 Donate &amp; Dispense Food</span>
-            <span className="badge badge-green">Weight-Controlled</span>
+            <span className="card-title">🍲 Feed the Strays</span>
+            <span className="badge badge-green">Auto-Weighed</span>
           </div>
-          <span className="dispense-mode-label">Auto-Stop on Target</span>
+          <span className="dispense-mode-label">Exact Grams</span>
         </div>
 
         <p className="donation-hint">
-          Select a portion tier to feed stray animals. The stepper motor runs and <strong>automatically shuts off</strong> once the load cell measures the exact grams in the bowl.
+          Pick a meal size below, pay via GCash, and the feeder will drop fresh food right into the bowl!
         </p>
 
         {/* Portion Selection Grid */}
@@ -140,7 +140,7 @@ export default function DonationCard({ db, unitId = 'unit001', currentBowlWeight
             id="gcash-donate-btn"
           >
             <QrCode size={18} />
-            Donate ₱{selected.php} via GCash ({selected.grams}g)
+            Feed for ₱{selected.php} ({selected.grams}g)
           </button>
 
           {/* Admin-Protected Direct Dispense */}
@@ -157,17 +157,17 @@ export default function DonationCard({ db, unitId = 'unit001', currentBowlWeight
             onClick={handleDispense}
             disabled={!isIdle || !db || (adminUnlocked && !online)}
             id="dispense-now-btn"
-            title={adminUnlocked ? 'Admin Direct Dispense' : 'Requires Admin PIN'}
+            title={adminUnlocked ? 'Admin Direct Feed' : 'Requires Admin PIN'}
           >
             {(isSending || isDispensing) && <span className="donation-btn-spinner" />}
             {isDone && <CheckCircle2 size={16} />}
             {isIdle && db && (adminUnlocked ? <Zap size={16} /> : <Lock size={15} />)}
 
             {isSending       ? 'Sending...'                       :
-             isDispensing    ? `Dispensing ${selected.grams}g...` :
+             isDispensing    ? `Feeding ${selected.grams}g...`    :
              isDone          ? 'Done ✓'                           :
              isError         ? 'Failed — Retry'                   :
-             !adminUnlocked  ? 'Admin Direct Feed'                :
+             !adminUnlocked  ? 'Admin Feed'                       :
              !online         ? 'Feeder Offline'                   :
              !db             ? 'Connecting...'                    :
                                `Admin Feed ${selected.grams}g`}
@@ -211,10 +211,10 @@ export default function DonationCard({ db, unitId = 'unit001', currentBowlWeight
         <div className="donation-notice">
           <span>🔒</span>
           <span>
-            GCash donations are verified via Receipt OCR &amp; 13-digit Reference No.
+            Quick GCash receipt check • 100% goes to feeding the strays
             {adminUnlocked && (
               <button type="button" className="donation-lock-link" onClick={handleLockAdmin}>
-                Lock Admin Mode
+                Lock Admin
               </button>
             )}
           </span>

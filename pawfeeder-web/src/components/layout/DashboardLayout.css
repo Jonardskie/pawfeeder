@@ -44,7 +44,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 12px 16px;
-    background: rgba(10, 15, 30, 0.92);
+    background: var(--bg-sidebar);
     border-bottom: 1px solid var(--border);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -54,6 +54,27 @@
     right: 0;
     z-index: 100;
   }
+
+  .mobile-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .theme-toggle-btn:hover { background: var(--bg-card-hover); }
 
   .mobile-header-brand {
     display: flex;

@@ -74,13 +74,44 @@
 }
 
 /* Status */
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.sidebar-theme-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-theme-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+.sidebar-theme-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .sidebar-status {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 14px 8px 0;
   border-top: 1px solid var(--border);
-  margin-top: auto;
 }
 
 .sidebar-status-label {

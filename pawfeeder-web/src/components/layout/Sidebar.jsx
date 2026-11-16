@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Video, HeartHandshake,
-  ScrollText, Settings
+  ScrollText, Settings, Sun, Moon
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { to: '/settings',icon: Settings,        label: 'Settings'   },
 ]
 
-export default function Sidebar({ online, lastSeen }) {
+export default function Sidebar({ online, lastSeen, theme = 'dark', onToggleTheme }) {
   return (
     <aside className="sidebar">
       {/* Logo */}
@@ -42,13 +42,26 @@ export default function Sidebar({ online, lastSeen }) {
         ))}
       </nav>
 
-      {/* Status */}
-      <div className="sidebar-status">
-        <span className={`dot ${online ? 'dot-green' : 'dot-red'}`} />
-        <div>
-          <div className="sidebar-status-label">{online ? 'Online' : 'Offline'}</div>
-          <div className="sidebar-status-time">
-            {lastSeen ? `Last seen ${lastSeen}` : 'Connecting...'}
+      {/* Theme Toggle & Status */}
+      <div className="sidebar-footer">
+        <button
+          type="button"
+          className="sidebar-theme-btn"
+          onClick={onToggleTheme}
+        >
+          <span className="sidebar-theme-left">
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+          </span>
+        </button>
+
+        <div className="sidebar-status">
+          <span className={`dot ${online ? 'dot-green' : 'dot-red'}`} />
+          <div>
+            <div className="sidebar-status-label">{online ? 'Online' : 'Offline'}</div>
+            <div className="sidebar-status-time">
+              {lastSeen ? `Last seen ${lastSeen}` : 'Connecting...'}
+            </div>
           </div>
         </div>
       </div>

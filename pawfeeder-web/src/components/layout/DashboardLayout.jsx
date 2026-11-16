@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Video, HeartHandshake,
-  ScrollText, Settings
+  ScrollText, Settings, Sun, Moon
 } from 'lucide-react'
 import Sidebar from './Sidebar'
 import './DashboardLayout.css'
@@ -14,7 +14,7 @@ const MOBILE_NAV_ITEMS = [
   { to: '/settings',icon: Settings,        label: 'Settings' },
 ]
 
-export default function DashboardLayout({ children, deviceStatus }) {
+export default function DashboardLayout({ children, deviceStatus, theme = 'dark', onToggleTheme }) {
   const isOnline = deviceStatus?.online ?? false
 
   return (
@@ -23,6 +23,8 @@ export default function DashboardLayout({ children, deviceStatus }) {
       <Sidebar
         online={isOnline}
         lastSeen={deviceStatus?.lastSeen ?? null}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
       />
 
       <div className="layout-content-wrapper">
@@ -32,10 +34,19 @@ export default function DashboardLayout({ children, deviceStatus }) {
             <span className="mobile-logo-icon">🐾</span>
             <div className="mobile-brand-text">
               <span className="mobile-app-title">PawFeeder</span>
-              <span className="mobile-app-sub">Unit 001 • Community Feeder</span>
+              <span className="mobile-app-sub">Community Feeder</span>
             </div>
           </div>
           <div className="mobile-header-right">
+            <button
+              type="button"
+              className="theme-toggle-btn"
+              onClick={onToggleTheme}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle Light/Dark Mode"
+            >
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
             <div className={`mobile-status-pill ${isOnline ? 'online' : 'offline'}`}>
               <span className="mobile-status-dot" />
               <span>{isOnline ? 'Online' : 'Offline'}</span>

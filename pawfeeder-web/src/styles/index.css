@@ -68,6 +68,24 @@ a { text-decoration: none; color: inherit; }
   --shadow-glow-green:  0 0 20px var(--green-glow);
 }
 
+/* ── Light Mode Theme Overrides ─────────────────────────────── */
+:root[data-theme="light"] {
+  --bg-base:         #F3F4F6;
+  --bg-card:         #FFFFFF;
+  --bg-card-hover:   #F9FAFB;
+  --bg-sidebar:      #FFFFFF;
+  --bg-input:        #F3F4F6;
+
+  --border:          rgba(15, 23, 42, 0.1);
+  --border-accent:   rgba(99, 102, 241, 0.45);
+
+  --text-primary:    #111827;
+  --text-secondary:  #4B5563;
+  --text-muted:      #6B7280;
+
+  --shadow-card:     0 2px 14px rgba(15, 23, 42, 0.06);
+}
+
 /* ── Scrollbar ──────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-base); }
