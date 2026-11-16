@@ -49,19 +49,22 @@ export default function Dashboard({ db, deviceStatus }) {
         </div>
       </div>
 
-      {/* Clean 2-Column Workspace */}
+      {/* Clean Grid: LiveFeed -> DonationCard -> ActivityLog on mobile; 2-col on desktop */}
       <div className="dashboard">
-        <div className="dashboard-left">
+        <div className="dashboard-area-feed">
           <LiveFeed />
-          <ActivityLog db={db} />
         </div>
 
-        <div className="dashboard-right">
+        <div className="dashboard-area-donate">
           <DonationCard
             db={db}
             currentBowlWeight={deviceStatus?.bowl_weight_g}
             online={online}
           />
+        </div>
+
+        <div className="dashboard-area-logs">
+          <ActivityLog db={db} />
         </div>
       </div>
     </div>

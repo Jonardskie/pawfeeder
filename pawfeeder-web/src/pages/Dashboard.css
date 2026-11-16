@@ -39,61 +39,47 @@
   background: rgba(239, 68, 68, 0.08);
 }
 
+/* Desktop: Feed + Logs on left, Sticky DonationCard on right */
 .dashboard {
   display: grid;
   grid-template-columns: 1fr 410px;
-  gap: var(--gap-lg);
+  grid-template-areas:
+    "feed donate"
+    "logs donate";
+  gap: var(--gap);
   align-items: start;
   width: 100%;
 }
 
-.dashboard-left {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap);
+.dashboard-area-feed   { grid-area: feed; min-width: 0; }
+.dashboard-area-logs   { grid-area: logs; min-width: 0; }
+.dashboard-area-donate {
+  grid-area: donate;
   min-width: 0;
-}
-
-.dashboard-right {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap);
   position: sticky;
   top: 24px;
-  min-width: 0;
 }
 
-/* Tablet & Mobile (< 1100px) */
+/* Tablet & Mobile (< 1100px): Feed -> Donate -> Logs */
 @media (max-width: 1100px) {
   .dashboard {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "feed"
+      "donate"
+      "logs";
     gap: var(--gap);
   }
 
-  .dashboard-right {
+  .dashboard-area-donate {
     position: static;
-    gap: var(--gap);
-  }
-
-  .dashboard-left {
-    gap: var(--gap);
   }
 }
 
 /* Small Tablets & Mobile Phones (< 768px) */
 @media (max-width: 767px) {
   .dashboard {
-    display: flex;
-    flex-direction: column;
     gap: 12px;
-  }
-
-  .dashboard-left,
-  .dashboard-right {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 100%;
   }
 
   .status-chip {
