@@ -196,7 +196,7 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
       }
     } catch (err) {
       console.error('Receipt scan error:', err)
-      setError('Could not scan screenshot automatically. Please verify your 13-digit Reference No. below.')
+      setError(err?.message || 'Auto-scan timed out. Please type your 13-digit Reference No. above and click Verify & Feed!')
     } finally {
       setScanning(false)
       setScanProgress(100)

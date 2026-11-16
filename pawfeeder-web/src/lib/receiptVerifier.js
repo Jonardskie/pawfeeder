@@ -174,16 +174,70 @@ async function preprocessImageForOcr(file) {
   })
 }
 
+function withTimeout(promise, ms, label = 'Timed out') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(label)), ms)),
+  ])
+}
+
+async function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      const dataUrl = String(reader.result || '')
+      const commaIdx = dataUrl.indexOf(',')
+      resolve(commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : '')
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function scanViaCloudApi(preparedBlob, expectedPhp, onProgress) {
+  onProgress?.(35)
+  const imageBase64 = await blobToBase64(preparedBlob)
+  onProgress?.(55)
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 9000)
+
+  try {
+    const res = await fetch('/api/verify-receipt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64,
+        mimeType: preparedBlob.type || 'image/jpeg',
+        expectedPhp,
+      }),
+      signal: controller.signal,
+    })
+    onProgress?.(85)
+    if (!res.ok) {
+      throw new Error(`Cloud OCR HTTP ${res.status}`)
+    }
+    return await res.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function recognizeTextFromImage(file, onProgress) {
   onProgress?.(10)
-  const [worker, preparedImage] = await Promise.all([
-    getOcrWorker(),
-    preprocessImageForOcr(file),
-  ])
-  onProgress?.(20)
+  const [worker, preparedImage] = await withTimeout(
+    Promise.all([getOcrWorker(), preprocessImageForOcr(file)]),
+    8000,
+    'OCR scanner timed out while loading. Please enter your 13-digit Ref No. below.'
+  )
+  onProgress?.(25)
   activeProgressCb = onProgress
   try {
-    const result = await worker.recognize(preparedImage)
+    const result = await withTimeout(
+      worker.recognize(preparedImage),
+      10000,
+      'Receipt scan took too long. Please enter your 13-digit Ref No. below.'
+    )
     return result.data.text || ''
   } finally {
     activeProgressCb = null
@@ -193,18 +247,39 @@ async function recognizeTextFromImage(file, onProgress) {
 /**
  * Scan and verify a GCash Receipt screenshot against:
  * 1. Authentic GCash Receipt keywords
- * 2. Recipient match (K** AL**N S. / 09556856270 / 955 685 / 6270 / 9TC2YV)
+ * 2. Recipient match (JONARD S. / 09535497843)
  * 3. Expected Donation Amount (e.g. ₱10.00, ₱30.00, ₱50.00, ₱70.00, ₱90.00)
  * 4. 13-digit Reference Number extraction (4-3-6 grouped or 13 contiguous digits)
  */
 export async function scanGcashReceipt(file, expectedPhp, onProgress) {
   const imageHash = await computeImageHash(file)
-  const rawText = await recognizeTextFromImage(file, onProgress)
-  const upper = rawText.toUpperCase()
-  const digitsOnly = rawText.replace(/\D/g, '')
+  onProgress?.(15)
+  const preparedBlob = await preprocessImageForOcr(file)
+
+  let cloudResult = null
+  let rawText = ''
+
+  try {
+    cloudResult = await scanViaCloudApi(preparedBlob, expectedPhp, onProgress)
+    rawText = cloudResult?.rawText || ''
+  } catch (cloudErr) {
+    console.warn('[Cloud OCR fallback -> local Tesseract]', cloudErr?.message)
+    rawText = await recognizeTextFromImage(file, onProgress)
+  }
+
+  const combinedText = [
+    rawText,
+    cloudResult?.recipientText || '',
+    cloudResult?.extractedRef || '',
+    cloudResult?.detectedAmount ? `${cloudResult.detectedAmount}.00` : '',
+  ].join('\n')
+
+  const upper = combinedText.toUpperCase()
+  const digitsOnly = combinedText.replace(/\D/g, '')
 
   // 1. Check if it looks like a GCash receipt
   const hasGcashKeywords =
+    Boolean(cloudResult?.hasGcashKeywords) ||
     upper.includes('REF') ||
     upper.includes('AMOUNT') ||
     upper.includes('TOTAL') ||
@@ -226,18 +301,19 @@ export async function scanGcashReceipt(file, expectedPhp, onProgress) {
   // 3. Check Amount (e.g. "30.00" for ₱30)
   const amountRegex = new RegExp(`(?<!\\d)${expectedPhp}[.,]\\s*00(?!\\d)`)
   const amountMatched =
-    amountRegex.test(rawText) ||
+    Number(cloudResult?.detectedAmount) === Number(expectedPhp) ||
+    amountRegex.test(combinedText) ||
     upper.includes(`PHP ${expectedPhp}`) ||
     upper.includes(`P${expectedPhp}.00`) ||
     upper.includes(`₱${expectedPhp}`)
 
   // Check if a different tier amount was found instead
   const allTiers = [10, 30, 50, 70, 90]
-  let detectedAmount = amountMatched ? expectedPhp : null
+  let detectedAmount = amountMatched ? expectedPhp : (cloudResult?.detectedAmount ? Number(cloudResult.detectedAmount) : null)
   if (!detectedAmount) {
     for (const t of allTiers) {
       const r = new RegExp(`(?<!\\d)${t}[.,]\\s*00(?!\\d)`)
-      if (r.test(rawText)) {
+      if (r.test(combinedText)) {
         detectedAmount = t
         break
       }
@@ -245,23 +321,26 @@ export async function scanGcashReceipt(file, expectedPhp, onProgress) {
   }
 
   // 4. Extract 13-digit Reference Number
-  // GCash receipts typically format Ref No. as "XXXX XXX XXXXXX" (4-3-6 digits) or 13 contiguous digits
-  let extractedRef = null
+  let extractedRef = cloudResult?.extractedRef && /^\d{13}$/.test(String(cloudResult.extractedRef).replace(/\D/g, ''))
+    ? String(cloudResult.extractedRef).replace(/\D/g, '')
+    : null
 
   // First look near "Ref" keyword
-  const refSectionMatch = rawText.match(/Ref(?:erence)?[\s.:No#]*([0-9][0-9\s-]{11,18}[0-9])/i)
-  if (refSectionMatch) {
-    const candidate = refSectionMatch[1].replace(/\D/g, '')
-    if (candidate.length === 13) {
-      extractedRef = candidate
-    } else if (candidate.length > 13) {
-      extractedRef = candidate.slice(0, 13)
+  if (!extractedRef) {
+    const refSectionMatch = combinedText.match(/Ref(?:erence)?[\s.:No#]*([0-9][0-9\s-]{11,18}[0-9])/i)
+    if (refSectionMatch) {
+      const candidate = refSectionMatch[1].replace(/\D/g, '')
+      if (candidate.length === 13) {
+        extractedRef = candidate
+      } else if (candidate.length > 13) {
+        extractedRef = candidate.slice(0, 13)
+      }
     }
   }
 
   // Fallback: Look for GCash 4-3-6 digit grouping anywhere in text
   if (!extractedRef) {
-    const groupedMatch = rawText.match(/(?<!\d)(\d{4})[\s-]+(\d{3})[\s-]+(\d{6})(?!\d)/)
+    const groupedMatch = combinedText.match(/(?<!\d)(\d{4})[\s-]+(\d{3})[\s-]+(\d{6})(?!\d)/)
     if (groupedMatch) {
       extractedRef = `${groupedMatch[1]}${groupedMatch[2]}${groupedMatch[3]}`
     }
@@ -269,7 +348,7 @@ export async function scanGcashReceipt(file, expectedPhp, onProgress) {
 
   // Fallback: Look for any 13-digit sequence that isn't the phone number
   if (!extractedRef) {
-    const thirteenMatches = rawText.match(/(?<!\d)\d{13}(?!\d)/g) || []
+    const thirteenMatches = combinedText.match(/(?<!\d)\d{13}(?!\d)/g) || []
     for (const m of thirteenMatches) {
       if (!m.includes('9535497843')) {
         extractedRef = m
@@ -280,7 +359,7 @@ export async function scanGcashReceipt(file, expectedPhp, onProgress) {
 
   return {
     imageHash,
-    rawText,
+    rawText: combinedText,
     hasGcashKeywords,
     recipientMatched,
     amountMatched,
