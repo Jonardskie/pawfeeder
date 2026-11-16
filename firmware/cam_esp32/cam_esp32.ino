@@ -133,8 +133,8 @@
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
-      config.frame_size   = FRAMESIZE_SVGA; // 800x600 crisp resolution (3x faster upload over WiFi than 720p)
-      config.jpeg_quality = 14;             // Crisp balanced quality
+      config.frame_size   = FRAMESIZE_XGA;  // 1024x768 sharp high-res (faster than 720p, crisper than SVGA)
+      config.jpeg_quality = 11;             // High crisp quality
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {
@@ -157,16 +157,19 @@
     if (s) {
       s->set_vflip(s, 0);         // 1 = flip vertically if camera is mounted upside down
       s->set_hmirror(s, 0);       // 1 = mirror horizontally
-      s->set_brightness(s, 2);    // +2 Brightness (brightens dim indoor rooms)
-      s->set_contrast(s, 0);      // Neutral contrast
+      s->set_brightness(s, 1);    // +1 Brightness (clear without washing out highlights)
+      s->set_contrast(s, 1);      // +1 Crisp edge contrast
       s->set_saturation(s, 0);    // Natural, true-to-life colors
       s->set_special_effect(s, 0);// Normal color mode
       s->set_whitebal(s, 1);      // Auto white balance
       s->set_awb_gain(s, 1);      // AWB gain
       s->set_wb_mode(s, 0);       // Auto WB mode
       s->set_exposure_ctrl(s, 1); // Auto exposure
-      s->set_ae_level(s, 2);      // +2 Target auto-exposure level (brightens overall frame)
-      s->set_gainceiling(s, GAINCEILING_16X); // 16X analog gain boost for clear low-light / indoor rooms
+      s->set_ae_level(s, 1);      // +1 Target auto-exposure level
+      s->set_gainceiling(s, GAINCEILING_8X); // 8X gain = cleaner image with less grain
+      s->set_bpc(s, 1);           // Black pixel correction
+      s->set_wpc(s, 1);           // White pixel correction
+      s->set_lenc(s, 1);          // Lens shading correction
     }
 
     // ── WiFi Connection ───────────────────────────────────────

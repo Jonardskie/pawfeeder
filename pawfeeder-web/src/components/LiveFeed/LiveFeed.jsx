@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Maximize2, RefreshCw, WifiOff, Signal, Zap, Globe, Lightbulb } from 'lucide-react'
+import { Maximize2, RefreshCw, WifiOff, Signal, Zap, Globe, Lightbulb, ExternalLink } from 'lucide-react'
 import { ref, onValue, set } from 'firebase/database'
 import { db } from '../../lib/firebase'
 import './LiveFeed.css'
@@ -44,9 +44,12 @@ export default function LiveFeed() {
     return () => unsub()
   }, [])
 
+  const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:'
+  const isLocalBlockedByHttps = isHttpsPage && streamMode === 'local'
+
   // Calculate active stream base URL based on selected mode
-  const activeBaseUrl = streamMode === 'local' 
-    ? `http://${localIp}/stream` 
+  const activeBaseUrl = streamMode === 'local'
+    ? `http://${localIp}/stream`
     : CLOUD_STREAM_URL
 
   const streamUrl = `${activeBaseUrl}?t=${streamKey}`
@@ -172,56 +175,88 @@ export default function LiveFeed() {
 
       {/* Viewport */}
       <div className="livefeed-viewport">
-        {/* MJPEG stream with clean unmount/remount */}
-        {isMountingStream && (
-          <img
-            ref={imgRef}
-            key={`${streamMode}-${streamKey}`}
-            src={streamUrl}
-            alt="ESP32-CAM live stream"
-            className={`livefeed-img ${status === STATUS.STREAMING ? 'livefeed-img--visible' : ''}`}
-            onLoad={() => setStatus(STATUS.STREAMING)}
-            onError={handleStreamError}
-          />
-        )}
-
-        {/* Loading overlay */}
-        {status === STATUS.LOADING && (
+        {isLocalBlockedByHttps ? (
           <div className="livefeed-overlay">
-            <div className="livefeed-spinner" />
-            <p className="livefeed-overlay-text">Connecting to camera...</p>
-            <p className="livefeed-overlay-sub">{activeBaseUrl}</p>
-          </div>
-        )}
-
-        {/* Error overlay */}
-        {status === STATUS.ERROR && (
-          <div className="livefeed-overlay">
-            <WifiOff size={36} color="var(--text-muted)" strokeWidth={1.5} />
-            <p className="livefeed-overlay-text">
-              {streamMode === 'local' ? 'Local Camera Unreachable' : 'Cloud Camera Offline'}
-            </p>
+            <Zap size={34} color="#00c896" strokeWidth={1.8} />
+            <p className="livefeed-overlay-text">Dedicated Local LAN Stream (30 FPS)</p>
             <p className="livefeed-overlay-sub">
-              {streamMode === 'local'
-                ? `Make sure your device is on the same WiFi (Target: ${localIp})`
-                : 'Target: pawfeeder-or3n.onrender.com'}
+              Browsers block HTTP cameras inside HTTPS pages. Open the direct LAN feed on your WiFi (Target: <strong>{localIp}</strong>):
             </p>
             <div className="livefeed-error-actions">
-              <button className="livefeed-retry-btn" onClick={handleRetry}>
-                <RefreshCw size={14} />
-                Retry
+              <a
+                href={`http://${localIp}/stream`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="livefeed-retry-btn"
+                style={{ textDecoration: 'none' }}
+              >
+                <ExternalLink size={14} />
+                Open Local Stream ({localIp})
+              </a>
+              <button
+                type="button"
+                className="livefeed-switch-fallback-btn"
+                onClick={() => handleModeChange('cloud')}
+              >
+                <Globe size={14} />
+                Back to Cloud Remote
               </button>
-              {streamMode === 'local' && (
-                <button 
-                  className="livefeed-switch-fallback-btn"
-                  onClick={() => handleModeChange('cloud')}
-                >
-                  <Globe size={14} />
-                  Switch to Cloud Mode
-                </button>
-              )}
             </div>
           </div>
+        ) : (
+          <>
+            {/* MJPEG stream with clean unmount/remount */}
+            {isMountingStream && (
+              <img
+                ref={imgRef}
+                key={`${streamMode}-${streamKey}`}
+                src={streamUrl}
+                alt="ESP32-CAM live stream"
+                className={`livefeed-img ${status === STATUS.STREAMING ? 'livefeed-img--visible' : ''}`}
+                onLoad={() => setStatus(STATUS.STREAMING)}
+                onError={handleStreamError}
+              />
+            )}
+
+            {/* Loading overlay */}
+            {status === STATUS.LOADING && (
+              <div className="livefeed-overlay">
+                <div className="livefeed-spinner" />
+                <p className="livefeed-overlay-text">Connecting to camera...</p>
+                <p className="livefeed-overlay-sub">{activeBaseUrl}</p>
+              </div>
+            )}
+
+            {/* Error overlay */}
+            {status === STATUS.ERROR && (
+              <div className="livefeed-overlay">
+                <WifiOff size={36} color="var(--text-muted)" strokeWidth={1.5} />
+                <p className="livefeed-overlay-text">
+                  {streamMode === 'local' ? 'Local Camera Unreachable' : 'Cloud Camera Offline'}
+                </p>
+                <p className="livefeed-overlay-sub">
+                  {streamMode === 'local'
+                    ? `Make sure your device is on the same WiFi (Target: ${localIp})`
+                    : 'Target: pawfeeder-or3n.onrender.com'}
+                </p>
+                <div className="livefeed-error-actions">
+                  <button className="livefeed-retry-btn" onClick={handleRetry}>
+                    <RefreshCw size={14} />
+                    Retry
+                  </button>
+                  {streamMode === 'local' && (
+                    <button
+                      className="livefeed-switch-fallback-btn"
+                      onClick={() => handleModeChange('cloud')}
+                    >
+                      <Globe size={14} />
+                      Switch to Cloud Mode
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Bottom bar controls */}
@@ -229,7 +264,7 @@ export default function LiveFeed() {
           <div className="livefeed-bottom-bar">
             <div className="livefeed-bar-left">
               <Signal size={13} />
-              <span>{streamMode === 'local' ? 'LAN SVGA' : 'Cloud SVGA'}</span>
+              <span>{streamMode === 'local' ? 'LAN XGA HD' : 'Cloud XGA HD'}</span>
             </div>
 
             <div className="livefeed-bar-right">
