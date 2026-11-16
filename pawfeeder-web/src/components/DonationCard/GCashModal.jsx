@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti'
 import gcashQr from '../../assets/gcash_qr.jpg'
 import {
   GCASH_ACCOUNT,
+  preloadOcrScanner,
   scanGcashReceipt,
   validateGcashRefCode,
 } from '../../lib/receiptVerifier'
@@ -46,6 +47,7 @@ export default function GCashModal({ tier, db, unitId = 'unit001', onClose }) {
   const fileInputRef = useRef(null)
 
   useEffect(() => {
+    preloadOcrScanner()
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
