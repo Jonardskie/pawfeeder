@@ -1,44 +1,68 @@
-import LiveFeed        from '../components/LiveFeed/LiveFeed'
-import FoodLevelGauge  from '../components/FoodLevelGauge/FoodLevelGauge'
-import BowlWeightCard  from '../components/BowlWeightCard/BowlWeightCard'
-import DonationCard    from '../components/DonationCard/DonationCard'
-import ActivityLog     from '../components/ActivityLog/ActivityLog'
-import DeviceStatus    from '../components/DeviceStatus/DeviceStatus'
+import { Wifi, WifiOff, Signal, Scale, Coins, Clock } from 'lucide-react'
+import LiveFeed     from '../components/LiveFeed/LiveFeed'
+import DonationCard from '../components/DonationCard/DonationCard'
+import ActivityLog  from '../components/ActivityLog/ActivityLog'
 import './Dashboard.css'
 
 export default function Dashboard({ db, deviceStatus }) {
-  return (
-    <div className="dashboard">
-      {/* Left column */}
-      <div className="dashboard-left">
-        <LiveFeed />
+  const online     = deviceStatus?.online ?? false
+  const rssi       = deviceStatus?.rssi ?? null
+  const bowlWeight = Number(deviceStatus?.bowl_weight_g ?? 0)
+  const totalCoins = Number(deviceStatus?.total_coins_php ?? 0)
+  const uptime     = Number(deviceStatus?.uptime_s ?? 0)
 
-        <div className="dashboard-bottom-row">
-          <DonationCard
-            db={db}
-            currentBowlWeight={deviceStatus?.bowl_weight_g}
-            online={deviceStatus?.online}
-          />
-          <BowlWeightCard
-            db={db}
-            weight={deviceStatus?.bowl_weight_g}
-            online={deviceStatus?.online}
-          />
+  const formatUptime = (s) => {
+    if (s < 60) return `${s}s`
+    if (s < 3600) return `${Math.floor(s / 60)}m`
+    return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
+  }
+
+  return (
+    <div className="dashboard-shell">
+      {/* Compact Icon Status Strip */}
+      <div className="dashboard-status-strip">
+        <div className={`status-chip ${online ? 'status-chip--online' : 'status-chip--offline'}`}>
+          {online ? <Wifi size={13} /> : <WifiOff size={13} />}
+          <span>{online ? 'Feeder Online' : 'Feeder Offline'}</span>
+        </div>
+
+        {rssi !== null && (
+          <div className="status-chip" title="WiFi Signal Strength">
+            <Signal size={13} />
+            <span>{rssi} dBm</span>
+          </div>
+        )}
+
+        <div className="status-chip" title="Current Bowl Weight">
+          <Scale size={13} />
+          <span>{bowlWeight.toFixed(1)}g</span>
+        </div>
+
+        <div className="status-chip" title="On-Site Coin Slot Total">
+          <Coins size={13} />
+          <span>₱{totalCoins}</span>
+        </div>
+
+        <div className="status-chip" title="Device Uptime">
+          <Clock size={13} />
+          <span>{formatUptime(uptime)}</span>
         </div>
       </div>
 
-      {/* Right column */}
-      <div className="dashboard-right">
-        <FoodLevelGauge levelPct={deviceStatus?.food_pct ?? 75} />
-        <DeviceStatus
-          online={deviceStatus?.online}
-          rssi={deviceStatus?.rssi}
-          uptime={deviceStatus?.uptime_s}
-          bowlWeight={deviceStatus?.bowl_weight_g}
-          totalCoins={deviceStatus?.total_coins_php}
-          lastSeen={deviceStatus?.lastSeen}
-        />
-        <ActivityLog db={db} />
+      {/* Clean 2-Column Workspace */}
+      <div className="dashboard">
+        <div className="dashboard-left">
+          <LiveFeed />
+          <ActivityLog db={db} />
+        </div>
+
+        <div className="dashboard-right">
+          <DonationCard
+            db={db}
+            currentBowlWeight={deviceStatus?.bowl_weight_g}
+            online={online}
+          />
+        </div>
       </div>
     </div>
   )
