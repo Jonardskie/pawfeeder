@@ -133,8 +133,8 @@
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
-      config.frame_size   = FRAMESIZE_HD;   // 1280x720 720p HD Widescreen (high clarity & sharpness)
-      config.jpeg_quality = 12;             // High crisp quality (balanced for HD buffer)
+      config.frame_size   = FRAMESIZE_SVGA; // 800x600 crisp resolution (3x faster upload over WiFi than 720p)
+      config.jpeg_quality = 14;             // Crisp balanced quality
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {
@@ -211,6 +211,7 @@
     }
 
     Serial.println("\nWiFi connected!");
+    WiFi.setSleep(false); // Disable modem sleep for low-latency streaming over weak RSSI
     Serial.printf("  IP  : http://%s\n", WiFi.localIP().toString().c_str());
     Serial.printf("  RSSI: %d dBm\n", WiFi.RSSI());
     Serial.println("\nEndpoints:");
@@ -248,9 +249,9 @@
   void pushFrameToRelay() {
     unsigned long now = millis();
     // Dynamic Frame Rate:
-    // If active viewers > 0: stream as fast as network allows (0ms delay) for maximum smoothness
-    // If 0 viewers: heartbeat snapshot every 1.5s to conserve bandwidth
-    unsigned long interval = (activeViewers > 0) ? 0 : 1500;
+    // If active viewers > 0: stream as fast as network allows (0ms delay)
+    // If 0 viewers: keep-alive frame every 800ms so Render stays warm & instant
+    unsigned long interval = (activeViewers > 0) ? 0 : 800;
     if (now - lastRelayPush < interval) return;
     lastRelayPush = now;
 
@@ -269,7 +270,7 @@
         httpRelay.begin(RELAY_UPLOAD_URL);
       }
       httpRelay.setReuse(true);
-      httpRelay.setTimeout(2500);
+      httpRelay.setTimeout(4500);
       httpRelayConnected = true;
     }
 

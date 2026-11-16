@@ -21,6 +21,11 @@ export default function App() {
     lastSeen: 'Connecting...',
   })
 
+  // ── Pre-warm Cloud Camera Relay on app open ───────────────
+  useEffect(() => {
+    fetch('https://pawfeeder-or3n.onrender.com/', { mode: 'no-cors' }).catch(() => {})
+  }, [])
+
   // ── Live device status from Firebase RTDB ─────────────────
   useEffect(() => {
     if (!db) return

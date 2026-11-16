@@ -14,11 +14,14 @@ const CLOUD_STREAM_URL = 'https://pawfeeder-or3n.onrender.com/stream'
 const CLOUD_LAMP_URL = 'https://pawfeeder-or3n.onrender.com/lamp'
 
 export default function LiveFeed() {
-  const [status, setStatus] = useState(STATUS.STREAMING)
+  const [status, setStatus] = useState(STATUS.LOADING)
   const [streamKey, setStreamKey] = useState(() => Date.now())
   const [isMountingStream, setIsMountingStream] = useState(true)
   const [streamMode, setStreamMode] = useState(() => {
-    return localStorage.getItem('pawfeeder_cam_mode') || 'cloud'
+    const saved = localStorage.getItem('pawfeeder_cam_mode')
+    // On HTTPS (Vercel), default to Cloud Remote so Mixed Content doesn't block video
+    if (window.location.protocol === 'https:' && saved === 'local') return 'cloud'
+    return saved || 'cloud'
   })
   const [localIp, setLocalIp] = useState('192.168.100.237')
   const [nightLight, setNightLight] = useState(false)
@@ -51,9 +54,10 @@ export default function LiveFeed() {
   // Instant seamless mode change without requiring browser refresh
   const handleModeChange = (mode) => {
     if (mode === streamMode) return
-    
+
     // 1. Unmount existing image to immediately terminate previous HTTP socket
     setIsMountingStream(false)
+    setErrorCount(0)
     setStatus(STATUS.LOADING)
     setStreamMode(mode)
     localStorage.setItem('pawfeeder_cam_mode', mode)
@@ -63,18 +67,17 @@ export default function LiveFeed() {
     // 2. Mount fresh image element with new target URL
     setTimeout(() => {
       setIsMountingStream(true)
-      setStatus(STATUS.STREAMING)
     }, 50)
   }
 
   const handleRetry = useCallback(() => {
     setIsMountingStream(false)
+    setErrorCount(0)
     setStatus(STATUS.LOADING)
     const newKey = Date.now()
     setStreamKey(newKey)
     setTimeout(() => {
       setIsMountingStream(true)
-      setStatus(STATUS.STREAMING)
     }, 50)
   }, [])
 
@@ -226,7 +229,7 @@ export default function LiveFeed() {
           <div className="livefeed-bottom-bar">
             <div className="livefeed-bar-left">
               <Signal size={13} />
-              <span>{streamMode === 'local' ? 'LAN 720p HD' : 'Cloud 720p HD'}</span>
+              <span>{streamMode === 'local' ? 'LAN SVGA' : 'Cloud SVGA'}</span>
             </div>
 
             <div className="livefeed-bar-right">
