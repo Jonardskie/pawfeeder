@@ -34,6 +34,14 @@ app.post('/upload', (req, res) => {
   const packet = Buffer.concat([header, req.body, footer]);
 
   for (const client of mjpegClients) {
+    // Drop frames for slow viewers instead of buffering in memory
+    if (client.destroyed || client.writableEnded) {
+      mjpegClients.delete(client);
+      continue;
+    }
+    if (client.writableNeedDrain) {
+      continue;
+    }
     try {
       client.write(packet);
     } catch (err) {
@@ -82,25 +90,31 @@ app.get('/stream', (req, res) => {
   });
 
   mjpegClients.add(res);
+  res.flushHeaders?.();
   console.log(`[Stream] New viewer connected. Total active viewers: ${mjpegClients.size}`);
 
-  // Send latest frame immediately so viewer doesn't see a blank screen
-  if (latestFrame) {
+  // Send latest frame only if it is fresh (< 10s old) so offline cameras don't look LIVE
+  const isFresh = latestFrame && (Date.now() - lastFrameTimestamp < 10000);
+  if (isFresh) {
     res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestFrame.length}\r\n\r\n`);
     res.write(latestFrame);
     res.write('\r\n');
   }
 
-  req.on('close', () => {
-    mjpegClients.delete(res);
-    console.log(`[Stream] Viewer disconnected. Total active viewers: ${mjpegClients.size}`);
-  });
+  const cleanup = () => {
+    if (mjpegClients.delete(res)) {
+      console.log(`[Stream] Viewer disconnected. Total active viewers: ${mjpegClients.size}`);
+    }
+  };
+  req.on('close', cleanup);
+  req.on('error', cleanup);
+  res.on('error', cleanup);
 });
 
 // ── 3. Single JPEG snapshot endpoint ────────────────────────
 app.get('/snapshot', (req, res) => {
-  if (!latestFrame) {
-    return res.status(503).send('No frame captured yet');
+  if (!latestFrame || (Date.now() - lastFrameTimestamp >= 10000)) {
+    return res.status(503).send('No fresh frame available');
   }
   res.set({
     'Content-Type': 'image/jpeg',

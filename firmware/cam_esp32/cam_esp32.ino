@@ -133,8 +133,8 @@
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
-      config.frame_size   = FRAMESIZE_VGA;  // 640x480 fast-loading (~12-18KB/frame, 4x faster on slow internet)
-      config.jpeg_quality = 16;             // Optimized for slow WiFi & instant cloud load
+      config.frame_size   = FRAMESIZE_SVGA; // 800x600 fast & crisp for cloud relay (~4x smaller than XGA)
+      config.jpeg_quality = 16;             // Balanced quality for fast upload over slow internet
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {
@@ -243,6 +243,20 @@
   }
 
 
+  // Switch sensor quality between Local LAN (XGA HD) and Cloud Relay (SVGA fast)
+  void setStreamProfile(bool highRes) {
+    if (!psramFound()) return;
+    sensor_t* s = esp_camera_sensor_get();
+    if (!s) return;
+    if (highRes) {
+      s->set_framesize(s, FRAMESIZE_XGA);
+      s->set_quality(s, 11);
+    } else {
+      s->set_framesize(s, FRAMESIZE_SVGA);
+      s->set_quality(s, 16);
+    }
+  }
+
   // ── Outbound Cloud Frame Push Helper ───────────────────────
   int activeViewers = 0;
   unsigned long lastRelayPush = 0;
@@ -253,8 +267,8 @@
     unsigned long now = millis();
     // Dynamic Frame Rate:
     // If active viewers > 0: stream as fast as network allows (0ms delay)
-    // If 0 viewers: keep-alive frame every 800ms so Render stays warm & instant
-    unsigned long interval = (activeViewers > 0) ? 0 : 800;
+    // If 0 viewers: keep-alive frame every 5000ms to keep Render warm without saturating upload
+    unsigned long interval = (activeViewers > 0) ? 0 : 5000;
     if (now - lastRelayPush < interval) return;
     lastRelayPush = now;
 
@@ -273,12 +287,11 @@
         httpRelay.begin(RELAY_UPLOAD_URL);
       }
       httpRelay.setReuse(true);
-      httpRelay.setTimeout(4500);
+      httpRelay.setTimeout(8000);
+      httpRelay.addHeader("Content-Type", "image/jpeg");
+      httpRelay.addHeader("Connection", "keep-alive");
       httpRelayConnected = true;
     }
-
-    httpRelay.addHeader("Content-Type", "image/jpeg");
-    httpRelay.addHeader("Connection", "keep-alive");
 
     int code = httpRelay.POST((uint8_t*)fb->buf, fb->len);
     if (code == 200) {
@@ -351,6 +364,7 @@
   //  MJPEG stream — renders live in <img> tag in the web app
   // ============================================================
   void handleStream(WiFiClient& client) {
+    setStreamProfile(true); // Boost to XGA HD for direct local LAN viewers
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: multipart/x-mixed-replace; boundary=frame");
     client.println("Access-Control-Allow-Origin: *");  // required for web app CORS
@@ -394,6 +408,7 @@
     }
 
     client.stop();
+    setStreamProfile(false); // Restore fast SVGA profile for cloud relay
     Serial.println("Stream client disconnected and socket closed.");
   }
 

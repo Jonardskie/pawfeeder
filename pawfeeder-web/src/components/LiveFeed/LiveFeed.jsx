@@ -11,13 +11,11 @@ const STATUS = {
 }
 
 const CLOUD_STREAM_URL = 'https://pawfeeder-or3n.onrender.com/stream'
-const CLOUD_SNAPSHOT_URL = 'https://pawfeeder-or3n.onrender.com/snapshot'
 const CLOUD_LAMP_URL = 'https://pawfeeder-or3n.onrender.com/lamp'
 
 export default function LiveFeed() {
   const [status, setStatus] = useState(STATUS.LOADING)
   const [streamKey, setStreamKey] = useState(() => Date.now())
-  const [snapshotLoaded, setSnapshotLoaded] = useState(false)
   const [isMountingStream, setIsMountingStream] = useState(true)
   const [streamMode, setStreamMode] = useState(() => {
     const saved = localStorage.getItem('pawfeeder_cam_mode')
@@ -48,6 +46,15 @@ export default function LiveFeed() {
 
   const isHttpsPage = typeof window !== 'undefined' && window.location.protocol === 'https:'
   const isLocalBlockedByHttps = isHttpsPage && streamMode === 'local'
+
+  // Timeout if stream stays in LOADING too long (e.g. Render cold start or camera offline)
+  useEffect(() => {
+    if (status !== STATUS.LOADING || isLocalBlockedByHttps || !isMountingStream) return
+    const timer = setTimeout(() => {
+      setStatus(STATUS.ERROR)
+    }, 15000)
+    return () => clearTimeout(timer)
+  }, [status, isLocalBlockedByHttps, isMountingStream, streamKey, streamMode])
 
   // Calculate active stream base URL based on selected mode
   const activeBaseUrl = streamMode === 'local'
@@ -207,18 +214,6 @@ export default function LiveFeed() {
           </div>
         ) : (
           <>
-            {/* Instant Snapshot Preview while live MJPEG stream buffers */}
-            {streamMode === 'cloud' && status !== STATUS.STREAMING && (
-              <img
-                src={`${CLOUD_SNAPSHOT_URL}?t=${streamKey}`}
-                alt="Camera snapshot preview"
-                className={`livefeed-img ${snapshotLoaded ? 'livefeed-img--visible' : ''}`}
-                style={{ position: 'absolute', inset: 0 }}
-                onLoad={() => setSnapshotLoaded(true)}
-                onError={() => setSnapshotLoaded(false)}
-              />
-            )}
-
             {/* MJPEG stream with clean unmount/remount */}
             {isMountingStream && (
               <img
@@ -232,8 +227,8 @@ export default function LiveFeed() {
               />
             )}
 
-            {/* Loading overlay (hidden once instant snapshot appears) */}
-            {status === STATUS.LOADING && !snapshotLoaded && (
+            {/* Loading overlay */}
+            {status === STATUS.LOADING && (
               <div className="livefeed-overlay">
                 <div className="livefeed-spinner" />
                 <p className="livefeed-overlay-text">Connecting to camera...</p>
@@ -278,7 +273,7 @@ export default function LiveFeed() {
           <div className="livefeed-bottom-bar">
             <div className="livefeed-bar-left">
               <Signal size={13} />
-              <span>{streamMode === 'local' ? 'LAN VGA Fast' : 'Cloud VGA Fast'}</span>
+              <span>{streamMode === 'local' ? 'LAN XGA HD' : 'Cloud Live'}</span>
             </div>
 
             <div className="livefeed-bar-right">
