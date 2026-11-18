@@ -1,13 +1,13 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Maximize2, RefreshCw, WifiOff, Signal, Zap, Globe, Lightbulb, ExternalLink } from 'lucide-react'
+import { Maximize2, RefreshCw, WifiOff, Signal, Zap, Globe, Lightbulb, ExternalLink, RotateCw } from 'lucide-react'
 import { ref, onValue, set } from 'firebase/database'
 import { db } from '../../lib/firebase'
 import './LiveFeed.css'
 
 const STATUS = {
-  LOADING:   'loading',
+  LOADING: 'loading',
   STREAMING: 'streaming',
-  ERROR:     'error',
+  ERROR: 'error',
 }
 
 const CLOUD_STREAM_URL = 'https://pawfeeder-or3n.onrender.com/stream'
@@ -26,9 +26,13 @@ export default function LiveFeed() {
   const [localIp, setLocalIp] = useState('192.168.100.237')
   const [nightLight, setNightLight] = useState(false)
   const [lampBusy, setLampBusy] = useState(false)
+  const [rotation, setRotation] = useState(() => {
+    const saved = Number(localStorage.getItem('pawfeeder_cam_rotation'))
+    return [0, 90, 180, 270].includes(saved) ? saved : 0
+  })
   const imgRef = useRef(null)
 
-  // Listen to Firebase for real-time camera IP and lamp state
+  // Listen to Firebase for real-time camera IP, lamp state, and rotation
   useEffect(() => {
     if (!db) return
     const camRef = ref(db, 'feeder/unit001/camera')
@@ -39,6 +43,11 @@ export default function LiveFeed() {
       }
       if (data?.lamp !== undefined) {
         setNightLight(Boolean(data.lamp))
+      }
+      if ([0, 90, 180, 270].includes(Number(data?.rotation))) {
+        const rot = Number(data.rotation)
+        setRotation(rot)
+        localStorage.setItem('pawfeeder_cam_rotation', String(rot))
       }
     })
     return () => unsub()
@@ -137,6 +146,19 @@ export default function LiveFeed() {
     })
   }, [])
 
+  const handleRotate = async () => {
+    const nextRot = (rotation + 90) % 360
+    setRotation(nextRot)
+    localStorage.setItem('pawfeeder_cam_rotation', String(nextRot))
+    if (db) {
+      try {
+        await set(ref(db, 'feeder/unit001/camera/rotation'), nextRot)
+      } catch (err) {
+        console.warn('[Firebase] Rotation update failed:', err)
+      }
+    }
+  }
+
   const handleFullscreen = useCallback(() => {
     if (imgRef.current) {
       document.fullscreenElement
@@ -222,6 +244,10 @@ export default function LiveFeed() {
                 src={streamUrl}
                 alt="ESP32-CAM live stream"
                 className={`livefeed-img ${status === STATUS.STREAMING ? 'livefeed-img--visible' : ''}`}
+                style={{
+                  transform: `translateZ(0) rotate(${rotation}deg) ${rotation === 90 || rotation === 270 ? 'scale(0.75)' : ''}`,
+                  objectFit: rotation === 90 || rotation === 270 ? 'contain' : 'cover',
+                }}
                 onLoad={() => setStatus(STATUS.STREAMING)}
                 onError={handleStreamError}
               />
@@ -287,6 +313,17 @@ export default function LiveFeed() {
               >
                 <Lightbulb size={14} className={nightLight ? 'lamp-glow-icon' : ''} />
                 <span>{nightLight ? 'Light ON' : 'Night Light'}</span>
+              </button>
+
+              {/* Rotate Camera Button */}
+              <button
+                type="button"
+                className="livefeed-control-btn"
+                onClick={handleRotate}
+                title={`Rotate camera (${rotation}°)`}
+              >
+                <RotateCw size={14} />
+                <span>{rotation}°</span>
               </button>
 
               {/* Fullscreen Button */}
