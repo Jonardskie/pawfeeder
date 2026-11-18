@@ -161,8 +161,8 @@
     // ── Sensor settings (bright indoor lighting, high clarity, clear faces) ──
     sensor_t* s = esp_camera_sensor_get();
     if (s) {
-      s->set_vflip(s, 1);         // 1 = flip vertically (upside-down mount)
-      s->set_hmirror(s, 1);       // 1 = mirror horizontally (180° rotation with vflip)
+      s->set_vflip(s, 0);         // 0 = normal vertical orientation (1 = upside-down mount)
+      s->set_hmirror(s, 0);       // 0 = normal horizontal orientation (1 = mirror)
       s->set_brightness(s, 1);    // +1 Brightness (clear without washing out highlights)
       s->set_contrast(s, 1);      // +1 Crisp edge contrast
       s->set_saturation(s, 0);    // Natural, true-to-life colors
