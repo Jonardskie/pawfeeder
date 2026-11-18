@@ -110,7 +110,7 @@
     digitalWrite(FLASH_LED_PIN, LOW); // Flash LED off by default
 
     // ── Camera config ─────────────────────────────────────────
-    camera_config_t config;
+    camera_config_t config = {};
     config.ledc_channel = LEDC_CHANNEL_0;
     config.ledc_timer   = LEDC_TIMER_0;
     config.pin_d0       = Y2_GPIO_NUM;
@@ -128,6 +128,7 @@
     config.pin_sscb_sda = SIOD_GPIO_NUM;
     config.pin_sscb_scl = SIOC_GPIO_NUM;
     config.pin_pwdn     = PWDN_GPIO_NUM;
+    config.pin_reset    = RESET_GPIO_NUM;
     config.xclk_freq_hz = 16500000;         // 16.5MHz allows longer sensor exposure & eliminates DMA buffer noise
     config.pixel_format = PIXFORMAT_JPEG;
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
@@ -146,9 +147,14 @@
 
     esp_err_t err = esp_camera_init(&config);
     if (err != ESP_OK) {
+      delay(500);
+      err = esp_camera_init(&config);
+    }
+    if (err != ESP_OK) {
       Serial.printf("Camera init failed: 0x%x\n", err);
-      Serial.println("Check power (needs stable 5V) and IO0 jumper removed.");
-      return;
+      Serial.println("Check power (needs stable 5V), OV2640 ribbon cable, and IO0 jumper removed. Restarting...");
+      delay(3000);
+      ESP.restart();
     }
     Serial.println("Camera initialized OK");
 
