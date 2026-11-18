@@ -134,8 +134,8 @@
     config.grab_mode    = CAMERA_GRAB_LATEST; // Always grab latest frame to prevent queue lag
 
     if (psramFound()) {
-      config.frame_size   = FRAMESIZE_SVGA; // 800x600 fast & crisp for cloud relay (~4x smaller than XGA)
-      config.jpeg_quality = 16;             // Balanced quality for fast upload over slow internet
+      config.frame_size   = FRAMESIZE_HD;   // Allocate PSRAM for up to 1280x720 HD (stepped down to XGA for cloud)
+      config.jpeg_quality = 13;             // Crisp JPEG quality
       config.fb_count     = 2;
       config.fb_location  = CAMERA_FB_IN_PSRAM;
     } else {
@@ -161,6 +161,10 @@
     // ── Sensor settings (bright indoor lighting, high clarity, clear faces) ──
     sensor_t* s = esp_camera_sensor_get();
     if (s) {
+      if (psramFound()) {
+        s->set_framesize(s, FRAMESIZE_XGA); // 1024x768 crisp resolution for Cloud Relay
+        s->set_quality(s, 13);
+      }
       s->set_vflip(s, 0);         // 0 = normal vertical orientation (1 = upside-down mount)
       s->set_hmirror(s, 0);       // 0 = normal horizontal orientation (1 = mirror)
       s->set_brightness(s, 1);    // +1 Brightness (clear without washing out highlights)
@@ -249,17 +253,17 @@
   }
 
 
-  // Switch sensor quality between Local LAN (XGA HD) and Cloud Relay (SVGA fast)
+  // Switch sensor quality between Local LAN (720p HD) and Cloud Relay (1024x768 XGA)
   void setStreamProfile(bool highRes) {
     if (!psramFound()) return;
     sensor_t* s = esp_camera_sensor_get();
     if (!s) return;
     if (highRes) {
-      s->set_framesize(s, FRAMESIZE_XGA);
-      s->set_quality(s, 11);
+      s->set_framesize(s, FRAMESIZE_HD);
+      s->set_quality(s, 10);
     } else {
-      s->set_framesize(s, FRAMESIZE_SVGA);
-      s->set_quality(s, 16);
+      s->set_framesize(s, FRAMESIZE_XGA);
+      s->set_quality(s, 13);
     }
   }
 
