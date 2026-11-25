@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PawFeeder — Complete System Documentation &amp; Student Guidebook</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-alt: #f1f5f9;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --border: #e2e8f0;
+      --accent: #059669;
+      --accent-soft: #ecfdf5;
+      --accent-border: #a7f3d0;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --amber: #d97706;
+      --amber-soft: #fffbeb;
+      --red: #dc2626;
+      --red-soft: #fef2f2;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+      --sidebar-w: 270px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    /* Layout */
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 16px;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 14px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 1rem;
+      line-height: 1.2;
+    }
+
+    .brand-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .toc-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin: 14px 8px 6px;
+    }
+
+    .toc a {
+      display: block;
+      padding: 6px 10px;
+      border-radius: 7px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .toc a:hover {
+      background: var(--surface-alt);
+      color: var(--text);
+    }
+
+    .toc a.sub {
+      padding-left: 22px;
+      font-size: 0.8rem;
+      font-weight: 400;
+    }
+
+    .print-btn {
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .print-btn:hover { filter: brightness(0.95); }
+
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      padding: 32px 40px 80px;
+      max-width: 1120px;
+    }
+
+    /* Hero Header */
+    .hero {
+      background: linear-gradient(135deg, #065f46 0%, #059669 60%, #10b981 100%);
+      color: #fff;
+      border-radius: 16px;
+      padding: 32px 34px;
+      margin-bottom: 28px;
+      box-shadow: 0 10px 30px rgba(5, 150, 105, 0.18);
+    }
+
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.18);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 1.95rem;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      margin: 0;
+      opacity: 0.94;
+      max-width: 780px;
+      font-size: 0.98rem;
+    }
+
+    .meta-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .meta-pill {
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      padding: 4px 11px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    /* Sections & Cards */
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 26px 28px;
+      margin-bottom: 22px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 1.38rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--surface-alt);
+    }
+
+    .sec-num {
+      display: inline-grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.88rem;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 1.05rem;
+      color: var(--text);
+    }
+
+    p { margin: 8px 0 12px; color: var(--text); }
+    ul, ol { margin: 8px 0 14px; padding-left: 22px; }
+    li { margin: 4px 0; }
+
+    /* Grid cards */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin: 14px 0;
+    }
+
+    .mini-card {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .mini-card h4 {
+      margin: 0 0 6px;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+
+    .mini-card p {
+      margin: 0;
+      font-size: 0.86rem;
+      color: var(--text-muted);
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 12px 0 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.87rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface-alt);
+      font-weight: 700;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-muted);
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    /* Code */
+    code {
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      background: var(--surface-alt);
+      padding: 1px 6px;
+      border-radius: 5px;
+      font-size: 0.86em;
+      color: #be123c;
+    }
+
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 14px 16px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-family: Consolas, "Cascadia Code", "Courier New", monospace;
+      font-size: 0.83rem;
+      line-height: 1.5;
+      margin: 10px 0 14px;
+    }
+
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+    }
+
+    /* Callouts */
+    .callout {
+      border-radius: 10px;
+      padding: 12px 15px;
+      margin: 12px 0;
+      font-size: 0.88rem;
+      border-left: 4px solid;
+    }
+
+    .callout strong { display: block; margin-bottom: 3px; }
+    .callout.tip   { background: var(--accent-soft); border-color: var(--accent); }
+    .callout.info  { background: var(--blue-soft);   border-color: var(--blue); }
+    .callout.warn  { background: var(--amber-soft);  border-color: var(--amber); }
+    .callout.danger{ background: var(--red-soft);    border-color: var(--red); }
+
+    /* Diagram box */
+    .diagram-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin: 14px 0;
+      overflow-x: auto;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .tag.blue  { background: var(--blue-soft);  color: var(--blue); }
+    .tag.amber { background: var(--amber-soft); color: var(--amber); }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 18px 14px 50px; }
+      section { padding: 18px 16px; }
+    }
+
+    /* Print / PDF */
+    @media print {
+      body { background: #fff; font-size: 12px; }
+      .sidebar, .print-btn { display: none !important; }
+      .main { margin-left: 0; padding: 0; max-width: 100%; }
+      section { break-inside: avoid-page; box-shadow: none; border-color: #cbd5e1; }
+      .hero { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      pre { white-space: pre-wrap; word-break: break-word; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <!-- Sidebar TOC -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">🐾</div>
+        <div>
+          <div class="brand-title">PawFeeder Docs</div>
+          <div class="brand-sub">Student Guidebook</div>
+        </div>
+      </div>
+
+      <nav class="toc">
+        <div class="toc-label">Guidebook Sections</div>
+        <a href="#overview">1. System Overview</a>
+        <a href="#hardware">2. Physical Components &amp; Wiring</a>
+        <a href="#hw-control" class="sub">Control ESP32 Pinout</a>
+        <a href="#hw-cam" class="sub">ESP32-CAM Pinout</a>
+        <a href="#functions">3. Overall Functions &amp; Flows</a>
+        <a href="#firmware">4. Firmware Deep-Dive</a>
+        <a href="#fw-flash" class="sub">Flashing &amp; WiFiManager</a>
+        <a href="#cloud">5. Cloud Backend &amp; Relay</a>
+        <a href="#webapp">6. Web App (React + Vercel)</a>
+        <a href="#admin">7. Admin &amp; Calibration</a>
+        <a href="#troubleshooting">8. Troubleshooting Playbook</a>
+      </nav>
+
+      <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <header class="hero">
+        <span class="hero-badge">Complete Engineering &amp; Student Guidebook</span>
+        <h1>Automated Stray Animal Feeder (PawFeeder)</h1>
+        <p>
+          Full technical documentation covering physical hardware, GPIO wiring, dual-ESP32 firmware,
+          closed-loop load-cell dispensing, coin &amp; GCash OCR donation flows, cloud video relay,
+          and the React web dashboard.
+        </p>
+        <div class="meta-strip">
+          <span class="meta-pill">Control MCU: ESP32 Dev Module (v5.4)</span>
+          <span class="meta-pill">Camera MCU: AI Thinker ESP32-CAM</span>
+          <span class="meta-pill">Database: Firebase RTDB</span>
+          <span class="meta-pill">Relay: Node.js + Express (Render)</span>
+          <span class="meta-pill">Frontend: React 19 + Vite 8 (Vercel)</span>
+        </div>
+      </header>
+
+      <!-- SECTION 1 -->
+      <section id="overview">
+        <h2><span class="sec-num">1</span> System Overview &amp; Architecture</h2>
+        <p>
+          <strong>PawFeeder</strong> is an IoT-enabled automated kibble dispenser designed for stray animals.
+          People can feed stray animals either <strong>on-site using physical coins</strong> or
+          <strong>remotely from anywhere in the world</strong> through a web app using GCash donations while
+          watching a live camera feed.
+        </p>
+
+        <div class="grid-2">
+          <div class="mini-card">
+            <h4>1. Control ESP32 (<code>control_esp32.ino</code>)</h4>
+            <p>Reads the coin slot &amp; HX711 bowl weight scale, drives the NEMA stepper auger with anti-clog protection, updates the 16×2 LCD, and syncs with Firebase.</p>
+          </div>
+          <div class="mini-card">
+            <h4>2. ESP32-CAM (<code>cam_esp32.ino</code>)</h4>
+            <p>Captures live JPEG frames, serves Local LAN HD video (<code>1280×720</code>), and pushes Cloud frames (<code>1024×768</code>) outbound over HTTPS to the Render relay.</p>
+          </div>
+          <div class="mini-card">
+            <h4>3. Firebase RTDB + Render Relay</h4>
+            <p>Firebase stores real-time telemetry, dispense commands, logs, and anti-fraud GCash receipt hashes. Render (<code>cam-relay</code>) relays MJPEG video globally.</p>
+          </div>
+          <div class="mini-card">
+            <h4>4. React Web App (<code>pawfeeder-web</code>)</h4>
+            <p>Deployed on Vercel. Displays live video (with night-light &amp; rotate controls), verifies GCash receipts via Tesseract OCR, and provides PIN-locked Admin tools.</p>
+          </div>
+        </div>
+
+        <div class="diagram-box">
+          <svg viewBox="0 0 880 250" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="System Architecture Diagram">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#475569" />
+              </marker>
+            </defs>
+            <!-- Boxes -->
+            <rect x="15" y="20" width="210" height="90" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+            <text x="120" y="48" text-anchor="middle" font-weight="700" font-size="13" fill="#065f46">Control ESP32 (v5.4)</text>
+            <text x="120" y="68" text-anchor="middle" font-size="11" fill="#334155">TB6600 Auger • HX711 Scale</text>
+            <text x="120" y="85" text-anchor="middle" font-size="11" fill="#334155">Allan Coin Slot • 16x2 I2C LCD</text>
+
+            <rect x="15" y="140" width="210" height="90" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+            <text x="120" y="168" text-anchor="middle" font-weight="700" font-size="13" fill="#1e40af">AI Thinker ESP32-CAM</text>
+            <text x="120" y="188" text-anchor="middle" font-size="11" fill="#334155">OV2640 Camera • Flash LED</text>
+            <text x="120" y="205" text-anchor="middle" font-size="11" fill="#334155">LAN /stream + Cloud Push</text>
+
+            <rect x="330" y="20" width="220" height="90" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2"/>
+            <text x="440" y="48" text-anchor="middle" font-weight="700" font-size="13" fill="#92400e">Firebase Realtime DB</text>
+            <text x="440" y="68" text-anchor="middle" font-size="11" fill="#334155">/feeder/unit001/status &amp; cmd</text>
+            <text x="440" y="85" text-anchor="middle" font-size="11" fill="#334155">Donations • Logs • Receipts</text>
+
+            <rect x="330" y="140" width="220" height="90" rx="10" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+            <text x="440" y="168" text-anchor="middle" font-weight="700" font-size="13" fill="#0f172a">Render Cloud Relay</text>
+            <text x="440" y="188" text-anchor="middle" font-size="11" fill="#334155">Node.js + Express (server.js)</text>
+            <text x="440" y="205" text-anchor="middle" font-size="11" fill="#334155">POST /upload → GET /stream</text>
+
+            <rect x="650" y="75" width="215" height="100" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+            <text x="757" y="103" text-anchor="middle" font-weight="700" font-size="13" fill="#065f46">Web App (Vercel)</text>
+            <text x="757" y="123" text-anchor="middle" font-size="11" fill="#334155">React 19 + Vite 8 Dashboard</text>
+            <text x="757" y="140" text-anchor="middle" font-size="11" fill="#334155">Tesseract OCR GCash Verifier</text>
+            <text x="757" y="157" text-anchor="middle" font-size="11" fill="#334155">Live Video + Admin Controls</text>
+
+            <!-- Arrows -->
+            <line x1="225" y1="65" x2="328" y2="65" stroke="#475569" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+            <line x1="225" y1="185" x2="328" y2="185" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+            <line x1="225" y1="155" x2="328" y2="95" stroke="#475569" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+            <line x1="550" y1="65" x2="648" y2="105" stroke="#475569" stroke-width="2" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+            <line x1="550" y1="185" x2="648" y2="145" stroke="#475569" stroke-width="2" marker-end="url(#arrow)"/>
+          </svg>
+        </div>
+      </section>
+
+      <!-- SECTION 2 -->
+      <section id="hardware">
+        <h2><span class="sec-num">2</span> Physical Components &amp; Hardware Wiring</h2>
+
+        <h3>Bill of Materials (Physical Parts)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Model / Spec</th>
+                <th>Role in System</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Main Controller</strong></td>
+                <td>ESP32 Dev Module (30/38-pin)</td>
+                <td>Runs <code>control_esp32.ino</code>; manages scale, coin slot, stepper motor, LCD, and Firebase sync.</td>
+              </tr>
+              <tr>
+                <td><strong>Camera Module</strong></td>
+                <td>AI Thinker ESP32-CAM + OV2640</td>
+                <td>Runs <code>cam_esp32.ino</code>; streams live video (LAN &amp; Cloud) and controls the front flash LED.</td>
+              </tr>
+              <tr>
+                <td><strong>Auger Motor &amp; Driver</strong></td>
+                <td>NEMA Stepper + TB6600 Driver</td>
+                <td>Rotates the food auger forward/reverse with high torque to dispense kibble and clear jams.</td>
+              </tr>
+              <tr>
+                <td><strong>Weight Sensor</strong></td>
+                <td>Load Cell + HX711 24-bit ADC</td>
+                <td>Measures real-time bowl weight in grams so feeding stops at the exact target weight.</td>
+              </tr>
+              <tr>
+                <td><strong>Coin Acceptor</strong></td>
+                <td>Allan 1239 ProMax (Pulse Output)</td>
+                <td>Detects inserted Philippine coins (₱10–₱90) and sends pulse bursts to <code>GPIO 18</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Local Display</strong></td>
+                <td>16×2 Character LCD (I2C, addr <code>0x27</code>)</td>
+                <td>Shows live bowl weight, coin balance, countdown, unjamming status, and Wi-Fi IP.</td>
+              </tr>
+              <tr>
+                <td><strong>Power &amp; Mechanics</strong></td>
+                <td>5V/2A+ PSU, 12V/24V PSU (TB6600), 100–470µF Cap, 3D/PVC Auger</td>
+                <td>Clean 5V logic power (with capacitor on ESP32-CAM <code>5V/GND</code> to absorb Wi-Fi surges) and separate motor power for TB6600.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="hw-control">Control ESP32 Pinout (<code>firmware/control_esp32/control_esp32.ino</code>)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Peripheral</th>
+                <th>Signal / Pin</th>
+                <th>ESP32 GPIO</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>TB6600 Stepper Driver</td>
+                <td><code>PUL_PIN</code> (Pulse)</td>
+                <td><code>GPIO 21</code></td>
+                <td>20µs HIGH pulse; <code>stepDelayUs = 1350</code> forward, <code>2200</code> high-torque.</td>
+              </tr>
+              <tr>
+                <td>TB6600 Stepper Driver</td>
+                <td><code>DIR_PIN</code> (Direction)</td>
+                <td><code>GPIO 19</code></td>
+                <td><code>LOW</code> = Forward, <code>HIGH</code> = Reverse (flip in code if auger spins backwards).</td>
+              </tr>
+              <tr>
+                <td>Status LED</td>
+                <td><code>LED_PIN</code></td>
+                <td><code>GPIO 4</code></td>
+                <td>Turns ON while dispensing.</td>
+              </tr>
+              <tr>
+                <td>Allan 1239 ProMax Coin Slot</td>
+                <td><code>COIN_PIN</code></td>
+                <td><code>GPIO 18</code></td>
+                <td><code>INPUT_PULLUP</code>, hardware interrupt on <code>CHANGE</code> (2ms–150ms LOW pulse filter).</td>
+              </tr>
+              <tr>
+                <td>HX711 Load Cell Amp</td>
+                <td><code>HX711_DOUT_PIN</code></td>
+                <td><code>GPIO 25</code></td>
+                <td>Data out from HX711.</td>
+              </tr>
+              <tr>
+                <td>HX711 Load Cell Amp</td>
+                <td><code>HX711_SCK_PIN</code></td>
+                <td><code>GPIO 26</code></td>
+                <td>Clock input to HX711 (protected by <code>noInterrupts()</code> during 24-bit read).</td>
+              </tr>
+              <tr>
+                <td>16×2 I2C LCD (<code>0x27</code>)</td>
+                <td><code>SDA</code> / <code>SCL</code></td>
+                <td><code>GPIO 32</code> / <code>GPIO 33</code></td>
+                <td>Initialized with <code>Wire.begin(32, 33); Wire.setClock(400000);</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="hw-cam">AI Thinker ESP32-CAM Pinout (<code>firmware/cam_esp32/cam_esp32.ino</code>)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Function</th>
+                <th>GPIO</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>OV2640 Control</td>
+                <td><code>PWDN=32</code>, <code>RESET=-1</code>, <code>XCLK=0</code>, <code>SIOD=26</code>, <code>SIOC=27</code></td>
+                <td><code>XCLK</code> runs at <code>16.5 MHz</code> for clean exposure without DMA noise.</td>
+              </tr>
+              <tr>
+                <td>OV2640 Sync &amp; Pixel Clock</td>
+                <td><code>VSYNC=25</code>, <code>HREF=23</code>, <code>PCLK=22</code></td>
+                <td>Hardware camera bus.</td>
+              </tr>
+              <tr>
+                <td>OV2640 Data Bus (D0–D7)</td>
+                <td><code>Y2=5, Y3=18, Y4=19, Y5=21, Y6=36, Y7=39, Y8=34, Y9=35</code></td>
+                <td>Fixed AI Thinker wiring.</td>
+              </tr>
+              <tr>
+                <td>Night Light Flash LED</td>
+                <td><code>FLASH_LED_PIN = 4</code></td>
+                <td>Front bright white LED; controlled from web app via Firebase + Cloud Relay.</td>
+              </tr>
+              <tr>
+                <td>Rear Red Status LED</td>
+                <td><code>RED_LED_PIN = 33</code></td>
+                <td>Active <code>LOW</code>; blinks during Wi-Fi connection, blinks 3× when ready.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warn">
+          <strong>Power Supply Engineering Note (Very Important!)</strong>
+          Always power the ESP32-CAM via its <strong>5V</strong> pin (never 3.3V) using a stable <strong>5V 2A+</strong> supply. Place a <strong>100µF–470µF electrolytic capacitor</strong> across <code>5V</code> and <code>GND</code> near the ESP32-CAM pins to prevent brownouts during Wi-Fi + camera startup.
+        </div>
+      </section>
+
+      <!-- SECTION 3 -->
+      <section id="functions">
+        <h2><span class="sec-num">3</span> Overall System Functions &amp; Operational Flows</h2>
+
+        <h3>A. Pricing &amp; Portion Tiers</h3>
+        <p>Both the Coin Slot and the Web Donation UI share the exact same peso-to-gram tiers:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Donation / Coin</th><th>Target Food</th><th>Coin Pulses Accepted (<code>parseCoinBurst</code>)</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>₱10</strong></td><td><strong>50 g</strong></td><td>8 – 13 pulses</td></tr>
+              <tr><td><strong>₱30</strong></td><td><strong>150 g</strong></td><td>27 – 33 pulses (e.g. ₱20 + ₱10)</td></tr>
+              <tr><td><strong>₱50</strong></td><td><strong>250 g</strong></td><td>47 – 53 pulses</td></tr>
+              <tr><td><strong>₱70</strong></td><td><strong>350 g</strong></td><td>67 – 73 pulses</td></tr>
+              <tr><td><strong>₱90</strong></td><td><strong>450 g</strong></td><td>87 – 96 pulses</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>B. On-Site Coin Feeding Workflow</h3>
+        <ol>
+          <li><strong>Noise-Filtered Interrupt:</strong> <code>coinInterrupt()</code> measures LOW pulse width on <code>GPIO 18</code>. Spikes shorter than <code>2ms</code> or longer than <code>150ms</code> are ignored.</li>
+          <li><strong>Burst Snapping:</strong> After <code>650ms</code> of silence (<code>COIN_SILENCE_MS</code>), <code>parseCoinBurst()</code> snaps the pulse count to the nearest valid ₱10–₱90 value and adds it to <code>balancePhp</code> and NVS flash (<code>total_php</code>).</li>
+          <li><strong>Tier Wait / Auto-Dispense:</strong> If <code>balancePhp == 90</code>, it dispenses immediately. For lower tiers (₱10, ₱30, ₱50, ₱70), it waits <code>3 seconds</code> (<code>TIER_WAIT_MS</code>) in case the user inserts more coins, showing a countdown on the LCD. Unclaimed partial balances expire after <code>2 minutes</code> (<code>120,000ms</code>).</li>
+        </ol>
+
+        <h3>C. Closed-Loop Weight Dispensing &amp; Anti-Clog</h3>
+        <ol>
+          <li><strong>Start Snapshot:</strong> Records <code>weightBefore</code> using 3-sample median filtering and sets Firebase <code>dispensing: true</code>.</li>
+          <li><strong>Chunked Auger Push:</strong> Runs the stepper in <code>650ms</code> forward chunks (<code>RUN_CHUNK_MS</code>) with a soft-start torque ramp (70ms). Every 4 chunks, it performs a <code>45ms</code> reverse "peck" (<code>MICRO_BACK_MS</code>) to prevent kibble wedging.</li>
+          <li><strong>Jam Detection &amp; Unjamming:</strong> Between chunks, <code>readCleanWeight()</code> checks if bowl weight increased by at least <code>1.5g</code> (<code>MIN_PROGRESS_G</code>). If weight stalls for <code>4</code> consecutive chunks (<code>STALL_CHUNKS_LIMIT</code>), <code>unjamAuger()</code> runs: <code>450ms</code> slow reverse &rarr; 4× rapid forward/reverse shake cycles &rarr; <code>350ms</code> high-torque forward push.</li>
+          <li><strong>Completion:</strong> Once <code>bowlWeight &gt;= weightBefore + targetGrams</code>, the motor stops, updates <code>food_level_pct</code>, logs <code>event/last_dispense</code>, and sets <code>dispensing: false</code>.</li>
+        </ol>
+
+        <h3>D. Online GCash Donation &amp; OCR Verification Flow</h3>
+        <ol>
+          <li>User picks a tier (₱10–₱90) in <code>DonationCard.jsx</code> and clicks <strong>Feed</strong>, opening <code>GCashModal.jsx</code>.</li>
+          <li>User scans the GCash QR (<code>JONARD S. | 09535497843</code>) and uploads the receipt screenshot.</li>
+          <li><code>receiptVerifier.js</code> runs <strong>Tesseract.js OCR</strong> in the browser, extracts &amp; validates the 13-digit GCash Reference Number, checks receiver details/amount, and computes a <strong>SHA-256 hash</strong> of the image so the same screenshot can never be reused.</li>
+          <li>If valid, the web app writes <code>/feeder/unit001/cmd/dispense = { active: true, grams }</code> to Firebase. The Control ESP32 polls every <code>2s</code>, dispenses the food, and streams live <code>dispensed_g</code> progress back to the modal.</li>
+        </ol>
+      </section>
+
+      <!-- SECTION 4 -->
+      <section id="firmware">
+        <h2><span class="sec-num">4</span> Firmware Deep-Dive &amp; Flashing Guide</h2>
+
+        <h3>Required Arduino IDE Libraries</h3>
+        <ul>
+          <li><strong>Control ESP32:</strong> <code>LiquidCrystal_I2C</code>, <code>WiFiManager</code> (by tzapu), <code>HX711</code> (by Bogdan Necula), plus built-in ESP32 <code>WiFi</code>, <code>WiFiClientSecure</code>, <code>HTTPClient</code>, <code>Preferences</code>, <code>Wire</code>.</li>
+          <li><strong>ESP32-CAM:</strong> Built-in <code>esp_camera</code> (Board: <strong>AI Thinker ESP32-CAM</strong>), <code>WiFiManager</code>, <code>WiFi</code>, <code>WiFiClientSecure</code>, <code>HTTPClient</code>.</li>
+        </ul>
+
+        <h3 id="fw-flash">How to Flash the ESP32-CAM</h3>
+        <ol>
+          <li>Connect FTDI/USB programmer: <code>TX &rarr; U0RXD</code>, <code>RX &rarr; U0TXD</code>, <code>GND &rarr; GND</code>, <code>5V &rarr; 5V</code>.</li>
+          <li>Bridge <strong><code>IO0 &rarr; GND</code></strong> with a jumper wire before powering on (Serial Monitor will show <code>waiting for download</code>).</li>
+          <li><strong>Close Serial Monitor</strong> in Arduino IDE, select Board <strong>AI Thinker ESP32-CAM</strong>, and click <strong>Upload</strong>.</li>
+          <li>After <code>100%</code> upload completes, <strong>remove the <code>IO0 &rarr; GND</code> jumper</strong> and press <strong>RST</strong>.</li>
+        </ol>
+
+        <h3>How <code>WiFiManager</code> Works on Both Boards</h3>
+        <div class="callout info">
+          <strong>Important Behavior: 2-Minute Boot Window Only</strong>
+          <code>WiFiManager</code> runs <strong>only once at startup (<code>setup()</code>)</strong>. If a board is powered on out of range for a long time, its 120-second portal closes. Always <strong>unplug &amp; re-plug</strong> the machine when moving to a new Wi-Fi location.
+        </div>
+        <ul>
+          <li><strong>Control ESP32:</strong> Tries last saved Wi-Fi for 20s &rarr; opens hotspot <strong><code>PawFeeder-Setup</code></strong> (password <code>pawfeeder123</code>) for 120s &rarr; falls back to <code>WiFi Offline / Coin Mode Only</code> if unconfigured.</li>
+          <li><strong>ESP32-CAM:</strong> Tries hardcoded <code>WIFI_SSID</code> (<code>"MPT MAUI STATION"</code>) for 20s &rarr; tries saved <code>WiFiManager</code> for 20s &rarr; opens <strong><code>PawFeeder-CAM-Setup</code></strong> (password <code>pawfeeder123</code>, portal <code>http://192.168.4.1</code>) for 120s &rarr; restarts if timed out.</li>
+        </ul>
+
+        <h3>Dual-Profile Video Streaming (<code>cam_esp32.ino</code>)</h3>
+        <ul>
+          <li><strong>Cloud Relay Mode (default):</strong> <code>FRAMESIZE_XGA</code> (<code>1024×768</code>) at <code>jpeg_quality = 13</code>. Pushes frames as fast as the network allows when <code>activeViewers &gt; 0</code>, or 1 keep-alive frame every <code>5000ms</code> when idle.</li>
+          <li><strong>Local LAN Mode (<code>GET /stream</code>):</strong> Temporarily boosts sensor to <code>FRAMESIZE_HD</code> (<code>1280×720</code>) at <code>jpeg_quality = 10</code> via <code>setStreamProfile(true)</code>, then restores <code>XGA</code> on disconnect.</li>
+        </ul>
+      </section>
+
+      <!-- SECTION 5 -->
+      <section id="cloud">
+        <h2><span class="sec-num">5</span> Cloud Backend &amp; Database Architecture</h2>
+
+        <h3>Firebase Realtime Database Schema (<code>paw-feeder-faed3</code>)</h3>
+        <pre><code>/feeder/unit001/
+  ├── status/
+  │     ├── online: true | false
+  │     ├── dispensing: true | false
+  │     ├── dispensed_g: 150.2
+  │     ├── target_g: 150
+  │     ├── bowl_weight_g: 150.2
+  │     ├── food_level_pct: 75.0
+  │     ├── total_collected_php: 240
+  │     ├── balance_php: 0
+  │     ├── uptime_s: 3600
+  │     └── rssi: -65
+  ├── cmd/dispense/
+  │     ├── active: true | false
+  │     └── grams: 50 | 150 | 250 | 350 | 450 | 901..908
+  ├── camera/
+  │     ├── ip: "192.168.100.237"
+  │     ├── stream_url: "https://pawfeeder-or3n.onrender.com/stream"
+  │     ├── lamp: true | false
+  │     ├── rotation: 0 | 90 | 180 | 270
+  │     └── online: true
+  └── event/
+        ├── last_dispense: { target_g, actual_g, bowl_g, source }
+        ├── last_coin: { php, grams }
+        └── unclaimed: { php, at }</code></pre>
+
+        <h3>Cloud Video Relay (<code>cam-relay/server.js</code> on Render)</h3>
+        <p>
+          Home routers block inbound connections from the internet. Instead of port forwarding, the ESP32-CAM pushes
+          frames <strong>outbound</strong> over HTTPS to <code>https://pawfeeder-or3n.onrender.com</code>:
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/upload</code></td><td><code>POST</code></td><td>Receives raw JPEG from ESP32-CAM; broadcasts to viewers (skips slow clients if <code>writableNeedDrain</code>); returns <code>{ ok, viewers, lamp, bytes }</code>.</td></tr>
+              <tr><td><code>/stream</code></td><td><code>GET</code></td><td>Serves <code>multipart/x-mixed-replace; boundary=frame</code> MJPEG stream to browsers (ignores frames &ge;10s old).</td></tr>
+              <tr><td><code>/snapshot</code></td><td><code>GET</code></td><td>Returns single latest JPEG if fresher than 10s (otherwise <code>503</code>).</td></tr>
+              <tr><td><code>/lamp</code></td><td><code>GET / POST</code></td><td>Toggles <code>nightLightState</code> so ESP32-CAM turns the flash LED ON/OFF.</td></tr>
+              <tr><td><code>/</code></td><td><code>GET</code></td><td>Health check JSON: <code>{ status, activeViewers, lastFrameAgeMs, cameraConnected }</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SECTION 6 -->
+      <section id="webapp">
+        <h2><span class="sec-num">6</span> Web Application (<code>pawfeeder-web</code> on Vercel)</h2>
+
+        <h3>Project Structure</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>File / Folder</th><th>Responsibility</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>src/App.jsx</code></td><td>Root router, Firebase status listener, Light/Dark theme state (<code>pawfeeder_theme</code>).</td></tr>
+              <tr><td><code>src/pages/Dashboard.jsx</code></td><td>Main view: compact status chip strip (online, RSSI, bowl weight, coin total, uptime) + LiveFeed + DonationCard + ActivityLog.</td></tr>
+              <tr><td><code>src/components/LiveFeed/LiveFeed.jsx</code></td><td>Local LAN / Cloud Remote switcher, 15s loading timeout, Night Light toggle, 0°/90°/180°/270° Rotate button (synced to Firebase), Fullscreen.</td></tr>
+              <tr><td><code>src/components/DonationCard/DonationCard.jsx</code></td><td>Tier selector (₱10–₱90), GCash donation button, and PIN-protected Admin Feed shortcut.</td></tr>
+              <tr><td><code>src/components/DonationCard/GCashModal.jsx</code></td><td>4-step modal (QR &rarr; Upload Receipt &rarr; OCR Verification &rarr; Live Dispense Progress Bar).</td></tr>
+              <tr><td><code>src/lib/receiptVerifier.js</code></td><td>Tesseract.js OCR singleton, 13-digit Ref# validation, SHA-256 duplicate image blocker.</td></tr>
+              <tr><td><code>src/components/ActivityLog/ActivityLog.jsx</code></td><td>Live feed of recent coin &amp; online feeding events from Firebase.</td></tr>
+              <tr><td><code>src/pages/Settings.jsx</code></td><td>PIN-locked Admin Panel for hardware maintenance commands (<code>901</code>–<code>908</code>) and QR/settings management.</td></tr>
+              <tr><td><code>src/components/layout/</code></td><td><code>DashboardLayout.jsx</code> &amp; <code>Sidebar.jsx</code> — responsive navigation + Light/Dark theme toggle.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Local Development &amp; Deployment Commands</h3>
+        <pre><code># 1. Install dependencies
+cd pawfeeder-web
+npm install
+
+# 2. Run local dev server
+npm run dev
+
+# 3. Build production bundle (deployed automatically on Vercel via GitHub main)
+npm run build</code></pre>
+        <p>
+          Optional environment variables (<code>.env.local</code>): <code>VITE_FIREBASE_API_KEY</code>,
+          <code>VITE_FIREBASE_AUTH_DOMAIN</code>, <code>VITE_FIREBASE_DB_URL</code>, <code>VITE_FIREBASE_PROJECT_ID</code>,
+          <code>VITE_CAMERA_URL</code>, and <code>VITE_ADMIN_PIN</code> (defaults to <code>1234</code> or <code>pawfeeder123</code>).
+        </p>
+      </section>
+
+      <!-- SECTION 7 -->
+      <section id="admin">
+        <h2><span class="sec-num">7</span> Admin Commands &amp; Load Cell Calibration</h2>
+
+        <h3>Admin Hardware Commands (Sent via <code>/feeder/unit001/cmd/dispense/grams</code>)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Code</th><th>Action</th><th>Firmware Behavior</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>901</code></td><td>Unjam Auger Shake</td><td>Runs full <code>unjamAuger()</code> reverse + 4× shake + forward push.</td></tr>
+              <tr><td><code>902</code></td><td>Reverse Spin 2s</td><td>Runs auger in reverse at high torque for 2000ms.</td></tr>
+              <tr><td><code>903</code></td><td>Forward Spin 2s</td><td>Runs auger forward at normal speed for 2000ms.</td></tr>
+              <tr><td><code>904</code></td><td>Tare Scale</td><td>Re-zeroes <code>tareBaseline</code> to current empty bowl reading.</td></tr>
+              <tr><td><code>905</code></td><td>Calibrate 200g</td><td>Measures a 200g reference weight, computes <code>calibrationFactor</code>, and saves to NVS flash.</td></tr>
+              <tr><td><code>906</code></td><td>Reset Coin Balance</td><td>Clears pending <code>balancePhp = 0</code>.</td></tr>
+              <tr><td><code>907</code></td><td>Hopper Refilled 100%</td><td>Sets <code>food_level_pct = 100.0</code>.</td></tr>
+              <tr><td><code>908</code></td><td>Reset Wi-Fi</td><td>Calls <code>WiFiManager::resetSettings()</code> and restarts ESP32 into setup portal.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>How Load Cell Calibration Works</h3>
+        <p>
+          Default <code>calibrationFactor</code> is <code>944.49f</code>. To recalibrate:
+          (1) Empty the bowl and run <strong>Tare (904)</strong>, (2) place an exact <strong>200g</strong> reference weight on the bowl,
+          and (3) run <strong>Calibrate 200g (905)</strong>. The firmware computes:
+        </p>
+        <pre><code>calibrationFactor = (medianRawReading - tareBaseline) / 200.0;
+prefs.putFloat("cal_factor", calibrationFactor); // Saved permanently in NVS</code></pre>
+      </section>
+
+      <!-- SECTION 8 -->
+      <section id="troubleshooting">
+        <h2><span class="sec-num">8</span> Student Lab Troubleshooting Playbook</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Symptom</th><th>Root Cause</th><th>Solution</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Camera init failed: 0xffffffff</code></td>
+                <td>Uninitialized <code>camera_config_t</code>, loose OV2640 ribbon, or weak 3.3V power.</td>
+                <td>Ensure <code>camera_config_t config = {};</code> and <code>pin_reset = -1</code>; reseat ribbon; use 5V 2A power.</td>
+              </tr>
+              <tr>
+                <td><code>boot:0x3 (DOWNLOAD_BOOT) waiting for download</code></td>
+                <td><code>IO0</code> is still bridged to <code>GND</code>.</td>
+                <td>Close Serial Monitor to upload; after upload finishes, <strong>remove <code>IO0 &rarr; GND</code></strong> and press <strong>RST</strong>.</td>
+              </tr>
+              <tr>
+                <td>Works on laptop USB, fails on wall brick</td>
+                <td>Programmer board holds <code>IO0</code>/<code>RST</code> without USB host, or fast-charge brick drops 5V.</td>
+                <td>Remove programmer board and power <code>5V/GND</code> directly from a plain 5V 2A brick + 100–470µF cap.</td>
+              </tr>
+              <tr>
+                <td><code>PawFeeder-Setup</code> Wi-Fi not showing</td>
+                <td><code>WiFiManager</code> already connected OR its 120s boot window expired.</td>
+                <td>Unplug &amp; plug back in; check phone Wi-Fi list 20–140 seconds after boot (or send Admin cmd <code>908</code>).</td>
+              </tr>
+              <tr>
+                <td>Local LAN button blocked on Vercel</td>
+                <td>Browsers block <code>http://</code> camera streams inside <code>https://</code> pages (Mixed Content).</td>
+                <td>Use <strong>Cloud Remote</strong> on Vercel, or click <strong>Open Local Stream</strong> to open the direct LAN tab.</td>
+              </tr>
+              <tr>
+                <td>Cloud stream takes 30–60s on first load</td>
+                <td>Render free tier cold-starting after 15 min idle, or slow home Wi-Fi upload.</td>
+                <td>Wait for Render to wake and click <strong>Retry</strong>; keep ESP32-CAM within good Wi-Fi RSSI (&gt; -75 dBm).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
